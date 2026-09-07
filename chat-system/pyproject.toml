@@ -1,0 +1,62 @@
+[project]
+name = "chat-system"
+version = "0.1.0"
+description = "Streamlit chat over the indexed operations manuals (RAG prototype, module 5): conversation DB (SQLAlchemy/Alembic, SQLite or Postgres), streaming answers with citations, per-user limits via rag-users, retrieval via rag-retrieval; chat-ask / chat-db / chat-doctor CLIs"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "streamlit>=1.50,<2",
+    "sqlalchemy>=2.0.30,<3",
+    "alembic>=1.13,<2",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6",
+    "typer>=0.12",
+    "httpx>=0.27",
+]
+# The sibling modules opensearch-index, users and retrieval are not on PyPI: requirements.txt installs them editable.
+# Keeping them out of this list keeps the Dockerfile's dependency layer (tomllib over the four pyproject files) working.
+
+[project.scripts]
+chat-ask = "chat_system.cli:ask_app"
+chat-db = "chat_system.cli:db_app"
+chat-doctor = "chat_system.cli:doctor_app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-timeout>=2.3",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chat_system"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -m 'not integration'"
+markers = [
+    "integration: real wiring against OpenSearch + LiteLLM (CHAT_INTEGRATION=1)",
+    "ui: Streamlit AppTest smoke (slower)",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "ISC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["chat_system", "conftest"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/chat_system/cli.py" = ["B008"]  # typer idiom
+"src/chat_system/migrations/*" = ["E402", "F401"]
+"tests/*" = ["E731", "E741"]

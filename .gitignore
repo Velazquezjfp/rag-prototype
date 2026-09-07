@@ -5,7 +5,6 @@ SPEC.md
 /.claude
 /opensearch-index
 /user-manual-books
-/chat-system/
 /chat-system/.venv/
 /chat-system/.env
 /chat-system/data/

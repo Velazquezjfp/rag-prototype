@@ -1,0 +1,7 @@
+# one question per line; "fast:" prefix = --no-graph, "user=<id>" suffix optional (default otto.ops)
+fast: Auf welchen Servern läuft ZSD?
+Was war bei ZSDSUP-0247?
+Was passiert, wenn Vault versiegelt ist?
+Wer ist für IAM/Keycloak zuständig und wie eskaliere ich?
+Wie backe ich einen Apfelkuchen?
+user=rita.read Was war bei ZSDSUP-0247?

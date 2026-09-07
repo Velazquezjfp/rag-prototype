@@ -1,0 +1,24 @@
+# chat-system defaults. Every key is overridable via environment variables: CHAT__<SECTION>__<KEY>,
+# e.g. CHAT__DB__URL=postgresql+psycopg://chat:secret@localhost:5432/chat   CHAT__RETRIEVAL__K=4
+# This file is read from CHAT_CONFIG, else ./config.yaml of the working directory, else this copy.
+# The answering model is configured ONCE in RAG__LLM__* (retrieval), the user policy in USERS__* (users) - both from .env.
+
+db:
+  url: sqlite:///./data/chat.db        # SQLite default (single process); Postgres via the compose profile (ADR-0007)
+  echo: false
+  auto_upgrade: true                   # alembic upgrade head when the service starts
+
+retrieval:                             # how the chat calls rag-retrieval (its internals stay in RAG__RETRIEVAL__*)
+  k: 8                                 # chunks kept in fast mode
+  k_graph: 12                          # chunks kept in slow (graph) mode
+  history_turns_for_rewrite: 2         # SPEC §8: the follow-up is rewritten from the last two turns
+  use_graph_default: true              # initial state of the "Graph-Modus (langsam)" toggle
+
+limits:
+  max_concurrent_answers: 10           # SPEC: max 10 concurrent users; in-process semaphore, "busy" refusal above it
+
+ui:
+  title: Betriebshandbuch-Assistent
+  allow_user_switch: false             # sidebar user selectbox = the simulated ingress of ADR-0008; true on the dev box only
+  show_diagnostics_default: false
+  conversation_list_limit: 20

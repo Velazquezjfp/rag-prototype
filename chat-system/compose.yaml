@@ -1,0 +1,76 @@
+# chat-system - the Streamlit chat as a container, with an optional Postgres (ADR-0007) for the enterprise profile.
+#
+#   make up             = docker compose --profile local up -d --build      host networking: OpenSearch :9200 and LiteLLM/tunnels
+#                                                                            on the host loopback; SQLite in the chat-data volume
+#   make db-up          = docker compose --profile postgres up -d postgres  Postgres 16 on 127.0.0.1:5432 (venv or container use it)
+#   make up-enterprise  = --profile postgres --profile enterprise up -d     published ${CHAT_BIND}:${CHAT_PORT}, DB in compose
+#
+# One .env (copy .env.example) drives build args, ports, the DB password AND the runtime settings (CHAT__*/RAG__*/USERS__*).
+# Portable with podman-compose: no `--wait`, depends_on in list form, readiness polled from the host (scripts/wait_db.sh).
+x-build: &build
+  context: ..
+  dockerfile: chat-system/Dockerfile
+  args:
+    BASE_IMAGE: ${BASE_IMAGE:-python:3.12-slim}
+    PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-}
+    http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
+    https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
+    no_proxy: ${no_proxy:-${NO_PROXY:-}}
+
+x-chat: &chat
+  build: *build
+  image: ${CHAT_IMAGE:-chat-system:local}
+  env_file: .env
+  environment:
+    RAG__ONTOLOGY__PATH: /ontology/ontology.yaml
+  volumes:
+    - ${ONTOLOGY_DIR:-../user-manual-books/handbuch_daten/Ontologie}:/ontology:ro${SELINUX_LABEL:-}
+  restart: unless-stopped
+
+services:
+  chat:                                 # dev box / server with tunnels: everything on the host loopback
+    <<: *chat
+    profiles: [local]
+    network_mode: host                  # reaches localhost:9200 / :4000 / tunnels; UI on 127.0.0.1:8501 (config.toml)
+    volumes:
+      - ${ONTOLOGY_DIR:-../user-manual-books/handbuch_daten/Ontologie}:/ontology:ro${SELINUX_LABEL:-}
+      - chat-data:/app/chat-system/data # SQLite (CHAT__DB__URL=sqlite:///./data/chat.db resolves here)
+    command: ["--server.address", "${CHAT_BIND:-127.0.0.1}", "--server.port", "${CHAT_PORT:-8501}"]
+
+  chat-enterprise:                      # published port, Postgres in compose, real endpoints from .env
+    <<: *chat
+    profiles: [enterprise]
+    ports:
+      - "${CHAT_BIND:-127.0.0.1}:${CHAT_PORT:-8501}:8501"
+    environment:
+      RAG__ONTOLOGY__PATH: /ontology/ontology.yaml
+      CHAT__DB__URL: postgresql+psycopg://chat:${POSTGRES_PASSWORD:-chat}@postgres:5432/chat
+      CHAT__UI__ALLOW_USER_SWITCH: "false"
+    depends_on: [postgres]              # ordering only (portable); the app retries the DB itself (pool_pre_ping)
+    # deploy: { replicas: 1 }           # one instance: the concurrency semaphore is per process
+
+  postgres:
+    profiles: [postgres]
+    image: ${POSTGRES_IMAGE:-postgres:16-alpine}
+    environment:
+      POSTGRES_DB: chat
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chat}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - chat-pgdata:/var/lib/postgresql/data   # named volume: no uid/SELinux dance on rootless podman
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat -d chat"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  chat-data:
+  chat-pgdata:

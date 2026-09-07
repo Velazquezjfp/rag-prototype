@@ -1,0 +1,6 @@
+# chat-system depends on three sibling modules that are not on PyPI (installed editable, in dependency order):
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt      (Artifactory: add -i <index-url>)
+-e ../opensearch-index
+-e ../users
+-e ../retrieval
+-e .[dev]
