@@ -1,0 +1,21 @@
+# Build context of chat-system/Dockerfile is the repository root: keep it small and secret-free.
+**/.venv
+**/data
+**/.env
+**/tests
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ruff_cache
+**/out
+out/
+venv-rag/
+user-manual-books/
+docling-graph/
+integration/
+docs/
+*.tar.gz
+*.tgz
+*.md
+!*/README.md
+.claude/

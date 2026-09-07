@@ -1,0 +1,4 @@
+# retrieval/ depends on the sibling module opensearch-index (client factory, IndexNames, ontology regexes; not on PyPI).
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt      (Artifactory: add -i <index-url>)
+-e ../opensearch-index
+-e .[dev]

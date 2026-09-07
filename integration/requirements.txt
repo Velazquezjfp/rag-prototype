@@ -1,0 +1,5 @@
+# integration/ runs inside opensearch-index/.venv: the indexer as a library plus the HTTP client for docling-graph.
+#   ../opensearch-index/.venv/bin/pip install -r requirements.txt      (Artifactory: add -i <index-url>)
+-e ../opensearch-index
+httpx>=0.27
+pytest>=8

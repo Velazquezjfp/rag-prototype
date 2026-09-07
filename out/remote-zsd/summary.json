@@ -1,0 +1,89 @@
+{
+ "http_seconds": 797,
+ "cached": false,
+ "pages": 29,
+ "tables": 22,
+ "pictures": 3,
+ "chunks": 112,
+ "chunks_by_kind": {
+  "text": 83,
+  "table": 26,
+  "picture": 3
+ },
+ "embedded": 112,
+ "max_tokens": 512,
+ "degraded": {
+  "vlm": false,
+  "embeddings": false,
+  "graph": false
+ },
+ "errors": [],
+ "timings_s": {
+  "convert": 359.479,
+  "describe": 15.027,
+  "chunk": 0.832,
+  "embed": 105.471,
+  "graph": 337.034
+ },
+ "versions": {
+  "docling_graph_service": "0.1.0",
+  "docling": "2.124.0",
+  "docling_core": "2.93.0",
+  "docling_graph": "1.9.1"
+ },
+ "nodes": 250,
+ "edges": 154,
+ "nodes_by_type": {
+  "Document": 8,
+  "OrgUnit": 13,
+  "Person": 18,
+  "System": 15,
+  "Component": 13,
+  "Host": 36,
+  "Environment": 2,
+  "Namespace": 4,
+  "NetworkZone": 6,
+  "FirewallRule": 16,
+  "DataStore": 2,
+  "IdentityClient": 6,
+  "CertificateAuthority": 7,
+  "SecretStorePath": 11,
+  "Procedure": 11,
+  "MaintenanceWindow": 2,
+  "StartupStep": 11,
+  "Incident": 14,
+  "FailureMode": 4,
+  "ImpactStatement": 20,
+  "Alert": 12,
+  "OpenItem": 1,
+  "Term": 18
+ },
+ "edges_by_type": {
+  "DOCUMENTS": 1,
+  "RELATED_DOCUMENT": 8,
+  "DEFINES_TERM": 11,
+  "RESPONSIBLE_FOR": 9,
+  "ESCALATES_TO": 4,
+  "OPERATED_BY": 4,
+  "DEPENDS_ON": 12,
+  "TENANT_OF": 3,
+  "AUTHENTICATES_VIA": 8,
+  "READS_SECRET": 16,
+  "GOVERNED_BY": 12,
+  "RUNS_ON": 6,
+  "LOCATED_IN": 8,
+  "PRECEDES": 10,
+  "STEP_RESPONSIBILITY": 3,
+  "PARTNER_TICKET": 16,
+  "RESULTED_IN_CHANGE": 7,
+  "DETECTED_BY": 2,
+  "IMPACT_OF": 10,
+  "MONITORS": 4
+ },
+ "edges_by_polarity": {
+  "positive": 149,
+  "negative": 5
+ },
+ "unresolved_targets": 14,
+ "conflicts": []
+}

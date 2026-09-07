@@ -1,0 +1,63 @@
+# rag-retrieval defaults. Every key is overridable via environment variables:
+#   RAG__<SECTION>__<KEY>, e.g. RAG__LLM__MODEL=granite4  RAG__EMBEDDING__QUERY_PREFIX="query: "
+# Secrets (API keys, passwords) belong in the environment / .env (see .env.example), not in this file.
+# This file is read from RAG_CONFIG or from the module folder; ./config.yaml in the working directory is deliberately
+# NOT consulted (chat-system runs from its own folder with its own config.yaml).
+
+opensearch:                            # same shape as opensearch-index (OSI__OPENSEARCH__*)
+  url: http://localhost:9200
+  username: null
+  password: null
+  verify_certs: true
+  ca_certs: null
+  timeout_s: 60
+  max_retries: 3
+
+index:
+  prefix: bhb                          # aliases bhb-chunks / bhb-nodes / bhb-documents
+
+embedding:                             # query-side embeddings; MUST match what produced chunk.embedding (osi status shows it)
+  base_url: http://localhost:4000/v1   # OpenAI-compatible /embeddings (LiteLLM locally, vLLM/TEI on the server)
+  api_key: null                        # RAG__EMBEDDING__API_KEY
+  model: bge-m3                        # intfloat/multilingual-e5-large on the server
+  dim: 1024
+  query_prefix: ""                     # "query: " for e5 (the chunks were indexed with "passage: ")
+  timeout_s: 30
+  max_attempts: 3
+
+llm:                                   # the answering model; also used for question rewriting (SPEC §8)
+  base_url: http://localhost:4000/v1
+  api_key: null                        # RAG__LLM__API_KEY
+  model: gemini-dev                    # granite4 (CPU, slow) / gemma4:e2b via Ollama http://localhost:11434/v1
+  temperature: 0.0
+  max_tokens: 4000                     # reasoning models (gemini-3.x) spend ~1300 thinking tokens of this budget first
+  timeout_s: 120
+  max_attempts: 2
+  context_limit_tokens: 32000          # build_messages refuses prompts above this (4096 for small Ollama models)
+
+retrieval:
+  k_per_channel: 20                    # hits requested from each of knn / bm25 / identifier / label
+  final_k: 10                          # chunks kept after fusion
+  rrf_rank_constant: 60                # SPEC §7.5
+  graph_seed_hits: 5                   # fused chunks whose node_ids seed the graph expansion (slow mode) ...
+  graph_seed_per_channel: 2            # ... plus the top hits of every search channel (a kNN#2-only table stays a seed)
+  graph_max_start_nodes: 30            # one table chunk can carry 25+ node ids
+  graph_max_facts: 40
+  graph_max_chunks: 15                 # provenance chunks of the kept facts fetched via mget = the 5th RRF list
+  graph_min_sources: 2                 # the provenance chunks of the best facts always make the final list (graph-only
+                                       # hits would otherwise lose against every two-channel hit in RRF)
+  graph_max_entities: 15               # entity cards (node attributes, e.g. ImpactStatement severity=keine)
+  label_max_ngram: 4                   # question n-grams matched against node labels/aliases
+  label_min_chars: 3
+  partial_label_min_tokens: 2          # nodes whose label contains >= 2 question words also seed (degree-0 ImpactStatements)
+  partial_label_max_nodes: 8
+  context_token_budget: 6000           # rendered context (entities + facts + sources) for the prompt
+  max_facts_in_prompt: 25
+
+guardrail:                             # ADR-0011: "Dazu steht nichts in den Handbüchern." without calling the model
+  enabled: true
+  min_agreeing_channels: 2             # a top hit counts as evidence if >= this many channels found it
+  top_n: 3
+
+ontology:
+  path: ../user-manual-books/handbuch_daten/Ontologie/ontology.yaml   # identifier regexes + relation label_de

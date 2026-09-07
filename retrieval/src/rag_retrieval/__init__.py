@@ -1,0 +1,52 @@
+"""rag-retrieval: question → hybrid OpenSearch retrieval + 1-hop graph expansion → German prompt context → answer."""
+
+from __future__ import annotations
+
+from .chat import NO_EVIDENCE_ANSWER, ChatClient, answer, rewrite_question
+from .models import (
+    ChannelEvidence,
+    ChannelStats,
+    ChunkGroup,
+    ChunkHit,
+    Citation,
+    Diagnostics,
+    EntityCard,
+    EntityOccurrence,
+    GraphFact,
+    Message,
+    RenderedContext,
+    RetrievalResult,
+    RewriteResult,
+)
+from .prompt import SYSTEM_PROMPT_DE, build_messages, estimate_tokens, render_context
+from .retriever import Retriever, default_retriever, retrieve
+from .settings import Settings, get_settings
+
+__all__ = [
+    "NO_EVIDENCE_ANSWER",
+    "SYSTEM_PROMPT_DE",
+    "ChannelEvidence",
+    "ChannelStats",
+    "ChatClient",
+    "ChunkGroup",
+    "ChunkHit",
+    "Citation",
+    "Diagnostics",
+    "EntityCard",
+    "EntityOccurrence",
+    "GraphFact",
+    "Message",
+    "RenderedContext",
+    "RetrievalResult",
+    "Retriever",
+    "RewriteResult",
+    "Settings",
+    "answer",
+    "build_messages",
+    "default_retriever",
+    "estimate_tokens",
+    "get_settings",
+    "render_context",
+    "retrieve",
+    "rewrite_question",
+]
