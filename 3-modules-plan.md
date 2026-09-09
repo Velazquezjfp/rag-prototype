@@ -241,6 +241,10 @@ system + last 6 history messages + `Kontext:\n…\n\nFrage: …`.
 
 ### Guardrail (`guardrail.decide`)
 
+> **Superseded 2026-09 by `retrieval/requirements/REQ-001-robust-question-understanding.md`:** the graph-facts
+> clause below was dropped during implementation, and REQ-001 phase 1 answers weak follow-ups from the conversation
+> instead of refusing; phases 2–4 add fuzzy/glossary evidence and an overview mode.
+
 `weak_evidence` iff enabled AND no identifier hits, no label-resolved nodes, no graph facts AND (BM25 returned 0
 hits OR none of the top 3 fused chunks was found by ≥2 channels). Reasons: "no lexical overlap with the corpus" /
 "only the kNN channel found the top hits". Never consults absolute cosine (REPORT §7). `answer()` short-circuits

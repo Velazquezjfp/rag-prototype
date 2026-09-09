@@ -101,3 +101,52 @@ def test_ask_rejects_empty_question_before_touching_anything(service, otto, repo
     with pytest.raises(ValueError):
         service.ask(otto, conv.id, "   ")
     assert repo.usage().count(otto.user_id, TODAY) == 0 and repo.list_messages(conv.id) == []
+
+
+def test_history_window_comes_from_the_retrieval_settings(repo, otto):
+    from types import SimpleNamespace
+
+    from conftest import FakeLLM, make_service
+
+    llm = FakeLLM()
+    rag = SimpleNamespace(
+        llm=SimpleNamespace(context_limit_tokens=32000, model="fake-llm"),
+        retrieval=SimpleNamespace(context_token_budget=6000, max_facts_in_prompt=25, history_turns=1),
+    )
+    svc = make_service(repo, llm=llm)
+    svc.rag_settings = rag
+    conv = svc.start_conversation(otto, use_graph=False, doc_ids=None)
+    for q in ("eins?", "zwei?", "drei?"):
+        svc.ask(otto, conv.id, q).collect()
+    prompt = llm.stream_calls[-1]
+    # one pair of history (history_turns=1) + the new question; the default would carry both earlier pairs
+    assert [m["role"] for m in prompt] == ["system", "user", "assistant", "user"]
+    assert prompt[1]["content"] == "zwei?"
+
+
+def test_truncated_stream_is_persisted_as_length(repo, otto):
+    """REQ-001 R8: a stream that reports finish_reason=length ends the turn as ``length`` (text kept, counted)."""
+    from conftest import FakeLLM, make_service
+
+    class TruncatingStream:
+        def __init__(self, tokens):
+            self.tokens = tokens
+            self.finish_reason = None
+
+        def __iter__(self):
+            yield from self.tokens
+            self.finish_reason = "length"
+
+    class TruncatingLLM(FakeLLM):
+        def stream(self, messages, *, model=None, max_tokens=None, temperature=None):
+            self.stream_calls.append([dict(m) for m in messages])
+            return TruncatingStream(["Erster ", "Teil"])
+
+    llm = TruncatingLLM()
+    svc = make_service(repo, llm=llm)
+    conv = svc.start_conversation(otto, use_graph=True, doc_ids=None)
+    turn = svc.ask(otto, conv.id, "Welche Firewall-Regeln sind konfiguriert?")
+    assert "".join(turn.tokens()) == "Erster Teil" and turn.finish_reason == "length"
+    row = repo.list_messages(conv.id)[-1]
+    assert row.finish_reason == "length" and row.content == "Erster Teil" and row.diagnostics["finish_reason"] == "length"
+    assert turn.to_result().finish_reason == "length" and repo.usage().count(otto.user_id, TODAY) == 1

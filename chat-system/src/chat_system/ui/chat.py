@@ -13,6 +13,19 @@ from .sidebar import SidebarState
 
 CAPPED_TEXT_DE = "Dieses Gespräch hat die maximale Länge erreicht. Bitte ein neues Gespräch beginnen."
 GUARDRAIL_NOTE_DE = "Schutzmechanismus: keine belastbaren Treffer in den Handbüchern – das Sprachmodell wurde nicht aufgerufen."
+WEAK_FOLLOW_UP_NOTE_DE = "Folgefrage ohne neue Treffer – Antwort aus dem Gesprächsverlauf, keine neuen Quellen."
+MODE_LABEL_DE = {"fast": "schnell", "slow": "Graph", "overview": "Übersicht"}
+
+
+def status_label(turn: Any) -> str:
+    """What the search status line says once retrieval is done — honest about what was used (REQ-001 R9)."""
+    r = turn.result
+    if turn.guardrail:
+        return "Keine belastbaren Treffer · schwache Evidenz · Modell nicht aufgerufen"
+    if getattr(turn, "weak_follow_up", False):
+        return "Keine neuen Treffer · Antwort aus dem Gesprächsverlauf"
+    mode = MODE_LABEL_DE.get(r.mode, r.mode)
+    return f"{len(r.groups)} Quellen · {len(r.facts)} Fakten · {len(r.entities)} Entitäten ({mode})"
 
 
 def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: SidebarState) -> None:
@@ -43,11 +56,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: Sideba
     try:
         with st.status("Suche in den Handbüchern …", expanded=False) as status:
             turn = svc.ask(ctx, ss.conversation_id, prompt, use_graph=state.use_graph, doc_ids=state.doc_ids)
-            r = turn.result
-            status.update(
-                label=f"{len(r.groups)} Quellen · {len(r.facts)} Fakten · {len(r.entities)} Entitäten ({r.mode})",
-                state="complete",
-            )
+            status.update(label=status_label(turn), state="complete")
     except TurnRefused as exc:
         st.warning(exc.message_de)
         if exc.reason == "turn_cap":
@@ -99,6 +108,8 @@ def render_extras(m: dict[str, Any], show_diagnostics: bool) -> None:
                     st.caption(f"Fakt: {fact}")
     if m.get("guardrail"):
         st.caption(GUARDRAIL_NOTE_DE)
+    elif (m.get("diagnostics") or {}).get("weak_follow_up"):
+        st.caption(WEAK_FOLLOW_UP_NOTE_DE)
     elif m.get("finish_reason") == "aborted":
         st.caption("Antwort abgebrochen – Text unvollständig.")
     elif m.get("finish_reason") == "length":
@@ -111,8 +122,10 @@ def render_extras(m: dict[str, Any], show_diagnostics: bool) -> None:
 def render_diagnostics(d: dict[str, Any], rewritten: str | None) -> None:
     mode = d.get("mode")
     st.markdown(
-        f"**Modus** {mode} · **Modell** {d.get('model') or '–'} · **Modell aufgerufen** {d.get('llm_called')} · "
+        f"**Modus** {mode} ({MODE_LABEL_DE.get(mode, mode)}) · **Modell** {d.get('model') or '–'} · **Modell aufgerufen** {d.get('llm_called')} · "
         f"**schwache Evidenz** {d.get('weak_evidence')}" + (f" ({d.get('weak_evidence_reason')})" if d.get("weak_evidence_reason") else "")
+        + (" · **Folgefrage ohne neue Evidenz** True" if d.get("weak_follow_up") else "")
+        + (" · **Antwort gekürzt (max_tokens)**" if d.get("finish_reason") == "length" else "")
     )
     if rewritten or d.get("rewritten_question"):
         st.markdown(f"**Umformulierte Frage:** {rewritten or d.get('rewritten_question')}")

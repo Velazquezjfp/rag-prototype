@@ -879,6 +879,12 @@ Handbüchern."* — and it must do so **without calling the model** (ADR-0011). 
 ranks and channels, never on an absolute similarity value: bge-m3 and e5 cosine scores compress to about
 0.96 for almost everything, so a threshold would be arbitrary.
 
+*Amendment (REQ-001, 2026-09-08).* The no-model-call refusal applies to a **first** turn. On a follow-up the
+conversation itself is evidence: the model is called with the history and a note that no new passages were
+found, so "Mach ein Script mit diesen Befehlen" after an answer that listed commands is answered from that
+answer. The requirement documents in `retrieval/requirements/` and `chat-system/requirements/` record this
+and the planned relaxations (approximate entity matching, ontology-driven overview mode).
+
 ```
 evidence is STRONG if   an identifier matched   or   a graph label resolved
 otherwise WEAK if       no hit at all
@@ -977,20 +983,27 @@ and edge ids.
 
 ### 6.9 Step 8 — The prompt
 
-The German system prompt sets seven rules: answer only from the context; cite every statement as
-`[BHB-PLT-0007 S. 19]`; if the context holds no answer, reply exactly with the canned sentence; facts marked
-`NICHT` and entries with `severity: keine` are explicit negations and must be rendered as such with their
-reason; when two manuals contradict each other, give both with sources; copy identifiers verbatim; answer in
-German, concisely, with numbered lists for sequences.
+The German system prompt sets seven rules: answer only from the context and from the assistant's own earlier
+answers in the conversation, which may be reused and transformed (a script, a summary, a table) but never
+extended with new facts; cite every statement as `[BHB-PLT-0007 S. 19]`; when the context answers only
+partially or the question names no concrete system, first say what the manuals contain on the topic (with
+sources), then ask in one sentence which system or manual is meant, naming the systems and manuals present in
+the context as options — the canned sentence is reserved for the case where neither context nor earlier
+answers hold anything (REQ-001, graded rule 3); facts marked `NICHT` and entries with `severity: keine` are
+explicit negations and must be rendered as such with their reason; when two manuals contradict each other,
+give both with sources; copy identifiers verbatim; answer in German, concisely, with numbered lists for
+sequences. A follow-up whose retrieval found no new evidence receives a short note instead of the context and
+is answered from the conversation.
 
 The context block is rendered in a fixed order — **Entitäten** (entity cards), **Fakten** (up to 25),
 **Quellen** (sources by rank, each with a header line `### Quelle n · doc „title“ · S. x · breadcrumb ·
 caption (n Teile) · [chunk ids]`). Sources are added until a budget of 6 000 estimated tokens is spent,
 using the `token_count` stored on every chunk plus about 40 per header; facts and entities always fit first,
 dropped chunk ids are reported. The estimate uses 2.6 characters per token, measured on this corpus with the
-verification model (a 19 120-character context was 7 336 tokens). The last three user/assistant pairs of the
-conversation precede the context; a prompt above the model's context limit raises an error instead of being
-truncated silently.
+verification model (a 19 120-character context was 7 336 tokens). The last `history_turns` user/assistant
+pairs of the conversation precede the context (default 3; 10 on a deployment with a large served context); a
+prompt above the model's context limit raises an error instead of being truncated silently. A streamed answer
+cut by `max_tokens` is reported as `finish_reason=length` to the chat, which stores and shows it.
 
 ### 6.10 Where a language model is used, and where not
 
@@ -1312,6 +1325,7 @@ query plan constrained to the ontology's relation names — the traversal would 
 | `context_token_budget` | 6 000 (≈ 7 000 real tokens at 2.6 chars/token) | rendered context |
 | guardrail `min_agreeing_channels` / `top_n` | 2 / 3 | |
 | llm `temperature` / `max_tokens` / `context_limit_tokens` | 0.0 / 4 000 / 32 000 | reasoning models spend ~1 300 tokens thinking first |
+| `history_turns` | 3 (server: 10) | user/assistant pairs in the prompt (REQ-001) |
 
 ### 10.2 Glossary
 

@@ -121,9 +121,10 @@ def enrich_citations(result: RetrievalResult) -> list[dict[str, Any]]:
 class TurnStream:
     """The answer as it streams. ``tokens()`` is what ``st.write_stream`` consumes; ``collect()`` for CLI/tests.
 
-    Persists the assistant row exactly once: ``finish_reason`` ``stop`` (complete), ``guardrail`` (canned sentence,
-    model not called), ``aborted`` (the consumer stopped early — partial text kept), ``error`` (the model failed —
-    usage refunded). ``abort()`` is idempotent; the UI calls it in ``finally``.
+    Persists the assistant row exactly once: ``finish_reason`` ``stop`` (complete), ``length`` (cut by max_tokens —
+    text kept, REQ-001 R8), ``guardrail`` (canned sentence, model not called), ``aborted`` (the consumer stopped
+    early — partial text kept), ``error`` (the model failed — usage refunded). ``abort()`` is idempotent; the UI
+    calls it in ``finally``.
     """
 
     def __init__(self, svc: ChatService, turn: _Turn) -> None:
@@ -162,8 +163,14 @@ class TurnStream:
 
     @property
     def citations(self) -> list[dict[str, Any]]:
-        # a guardrail answer cites nothing: the kNN channel always returns chunks, but none of them is evidence
-        return [] if self.guardrail else enrich_citations(self._turn.result)
+        # a weak result cites nothing: the kNN channel always returns chunks, but none of them is evidence — this holds
+        # for the guardrail turn and for a follow-up answered from the conversation (REQ-001 R6)
+        return [] if self.guardrail or self._turn.result.weak_evidence else enrich_citations(self._turn.result)
+
+    @property
+    def weak_follow_up(self) -> bool:
+        """Weak evidence, but the model was called with the conversation (REQ-001 R6)."""
+        return self._turn.messages is not None and self._turn.result.weak_evidence
 
     @property
     def facts(self) -> list[dict[str, Any]]:
@@ -189,6 +196,7 @@ class TurnStream:
             "doc_ids": t.doc_ids,
             "weak_evidence": t.result.weak_evidence,
             "weak_evidence_reason": t.result.weak_evidence_reason,
+            "weak_follow_up": self.weak_follow_up,
             "llm_called": self.llm_called,
             "model": t.model,
             "timings_ms": timings,
@@ -210,20 +218,27 @@ class TurnStream:
             self._finish("guardrail")
             return
         self.llm_called = True
+        stream = None
         try:
-            for delta in self._svc.llm.stream(t.messages):
+            stream = self._svc.llm.stream(t.messages)
+            for delta in stream:
                 if self._first_token_ms is None:
                     self._first_token_ms = int((time.perf_counter() - self._t0) * 1000)
                 self._text.append(delta)
                 yield delta
         except GeneratorExit:
+            close = getattr(stream, "close", None)
+            if close is not None:
+                close()
             self._finish("aborted")
             raise
         except Exception as exc:  # noqa: BLE001 - the model failed: persist, refund, tell the caller
             log.warning("LLM stream failed for conversation %s: %s", t.conversation_id, exc)
             self._finish("error", error=exc)
             raise
-        self._finish("stop")
+        # duck-typed: rag_retrieval.TokenStream knows how the model stopped, a plain generator does not
+        truncated = getattr(stream, "finish_reason", None) == "length"
+        self._finish("length" if truncated else "stop")
 
     def abort(self) -> None:
         if not self.done:
@@ -422,15 +437,17 @@ class ChatService:
             )
             timings["retrieve"] = int((time.perf_counter() - t0) * 1000)
 
-            # (6) guardrail or prompt
+            # (6) guardrail or prompt (REQ-001 R6: a weak verdict refuses only on the first turn; a follow-up is
+            #     answered from the conversation with WEAK_FOLLOW_UP_NOTE_DE instead of the context)
             messages: list[dict[str, str]] | None = None
             prompt_chars = 0
-            if not result.weak_evidence:
-                kwargs: dict[str, Any] = {}
+            if not result.weak_evidence or history:
+                kwargs: dict[str, Any] = {"weak_note": result.weak_evidence}
                 if self.rag_settings is not None:
                     kwargs["context_limit_tokens"] = self.rag_settings.llm.context_limit_tokens
                     kwargs["token_budget"] = self.rag_settings.retrieval.context_token_budget
                     kwargs["max_facts"] = self.rag_settings.retrieval.max_facts_in_prompt
+                    kwargs["max_history_turns"] = getattr(self.rag_settings.retrieval, "history_turns", 3)
                 messages = build_messages(result, question, history, **kwargs)
                 prompt_chars = sum(len(m["content"]) for m in messages)
         except BaseException as exc:

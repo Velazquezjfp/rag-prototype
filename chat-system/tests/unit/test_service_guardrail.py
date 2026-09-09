@@ -1,4 +1,4 @@
-from rag_retrieval import NO_EVIDENCE_ANSWER
+from rag_retrieval import NO_EVIDENCE_ANSWER, WEAK_FOLLOW_UP_NOTE_DE
 
 from conftest import TODAY, FakeLLM, FakeRetriever, make_service
 
@@ -34,3 +34,28 @@ def test_guardrail_turn_does_not_prevent_a_normal_follow_up(repo, otto):
     assert res.finish_reason == "stop" and res.guardrail is False and len(llm.stream_calls) == 1
     # the guardrail answer is part of the history the model sees
     assert any(m["content"] == NO_EVIDENCE_ANSWER for m in llm.stream_calls[0])
+
+
+def test_weak_follow_up_is_answered_from_the_conversation(repo, otto):
+    """REQ-001 R6: the guardrail refuses only on a first turn; a follow-up without new evidence goes to the model
+    with the history and the weak note, cites nothing and is persisted as a normal answer."""
+    llm = FakeLLM("#!/bin/sh\nvault operator unseal")
+    retriever = FakeRetriever(weak=False)
+    svc = make_service(repo, retriever=retriever, llm=llm)
+    conv = svc.start_conversation(otto, use_graph=True, doc_ids=None)
+    svc.ask(otto, conv.id, "Wie entsiegle ich den Vault?").collect()
+    retriever.weak = True
+    turn = svc.ask(otto, conv.id, "Mach ein Script mit diesen Befehlen")
+    assert turn.guardrail is False and turn.weak_follow_up is True and turn.citations == []
+    assert "".join(turn.tokens()).startswith("#!/bin/sh") and turn.finish_reason == "stop"
+    prompt = llm.stream_calls[-1]
+    assert [m["role"] for m in prompt] == ["system", "user", "assistant", "user"]
+    assert WEAK_FOLLOW_UP_NOTE_DE in prompt[-1]["content"] and "## Quellen" not in prompt[-1]["content"]
+    row = repo.list_messages(conv.id)[-1]
+    assert row.guardrail is False and row.finish_reason == "stop" and row.citations == []
+    assert row.diagnostics["weak_evidence"] is True and row.diagnostics["weak_follow_up"] is True and row.diagnostics["llm_called"] is True
+    assert repo.usage().count(otto.user_id, TODAY) == 2
+    # a first turn with weak evidence is still refused without a model call
+    conv2 = svc.start_conversation(otto, use_graph=True, doc_ids=None)
+    first = svc.ask(otto, conv2.id, "Wie backe ich einen Apfelkuchen?")
+    assert first.guardrail is True and first.weak_follow_up is False and list(first.tokens()) == [NO_EVIDENCE_ANSWER]

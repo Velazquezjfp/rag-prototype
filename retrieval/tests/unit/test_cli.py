@@ -97,3 +97,16 @@ def test_callback_sets_env(monkeypatch, wired):
     res = runner.invoke(cli.app, ["--prefix", "zzz", "--url", "http://x:9200", "graph-stats"])
     assert res.exit_code == 0
     assert os.environ["RAG__INDEX__PREFIX"] == "zzz" and os.environ["RAG__OPENSEARCH__URL"] == "http://x:9200"
+
+
+def test_ask_weak_follow_up_with_history_calls_the_model(wired, tmp_path):
+    """REQ-001 R6 on the CLI: --history-file turns a weak verdict into a model call from the conversation."""
+    _, llm = wired
+    hist = tmp_path / "h.json"
+    hist.write_text(json.dumps([{"role": "user", "content": "Wie entsiegle ich den Vault?"}, {"role": "assistant", "content": "vault operator unseal [BHB-PLT-0007 S. 19]"}]), encoding="utf-8")
+    llm.reply = "Apfelkuchen Rezept Zutaten"  # the rewrite result stays off-topic -> weak evidence
+    res = runner.invoke(cli.app, ["ask", "Mach ein Script daraus", "--answer", "--history-file", str(hist)])
+    assert res.exit_code == 0, res.output
+    assert "SCHWACHE EVIDENZ" in res.output and "Antwort aus dem Gesprächsverlauf" in res.output
+    assert len(llm.calls) == 2  # rewrite + answer (no refusal)
+    assert any("keine neuen belastbaren Stellen" in m["content"] for m in llm.calls[1])

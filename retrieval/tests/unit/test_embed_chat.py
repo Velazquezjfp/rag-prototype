@@ -71,7 +71,9 @@ def _chat_transport(reply="Hallo Welt", sse=False, seen=None):
             seen.append(json.loads(request.content))
         if sse:
             chunks = [f"data: {json.dumps({'choices': [{'delta': {'content': tok}}]})}\n\n" for tok in reply.split("|")]
-            body = ": keep-alive\n\n" + "".join(chunks) + "data: {\"choices\": [{\"delta\": {}}]}\n\ndata: [DONE]\n\n"
+            finish = "length" if reply.endswith("…") else "stop"
+            last = json.dumps({"model": "m-1", "choices": [{"delta": {}, "finish_reason": finish}]})
+            body = ": keep-alive\n\n" + "".join(chunks) + f"data: {last}\n\ndata: [DONE]\n\n"
             return httpx.Response(200, text=body, headers={"content-type": "text/event-stream"})
         return httpx.Response(200, json={"choices": [{"message": {"role": "assistant", "content": reply}, "finish_reason": "length" if reply.endswith("…") else "stop"}], "usage": {"completion_tokens": 7}, "model": "m-1"})
 
@@ -98,7 +100,18 @@ def test_chat_complete_full_reports_truncation():
 
 def test_chat_stream_parses_sse_deltas():
     llm = ChatClient(LLMSettings(base_url="http://llm/v1", model="m"), transport=_chat_transport("Hal|lo| Welt", sse=True))
-    assert list(llm.stream([{"role": "user", "content": "x"}])) == ["Hal", "lo", " Welt"]
+    stream = llm.stream([{"role": "user", "content": "x"}])
+    assert stream.finish_reason is None  # not known before the iteration
+    assert list(stream) == ["Hal", "lo", " Welt"]
+    assert stream.finish_reason == "stop" and not stream.truncated and stream.model == "m-1"
+
+
+def test_chat_stream_exposes_truncation():
+    """REQ-001 R8: a stream cut by max_tokens reports ``length`` so the chat can persist and show it."""
+    llm = ChatClient(LLMSettings(base_url="http://llm/v1", model="m", max_tokens=7), transport=_chat_transport("ab|ge|schnitten…", sse=True))
+    stream = llm.stream([{"role": "user", "content": "x"}])
+    assert "".join(stream) == "abgeschnitten…" and stream.finish_reason == "length" and stream.truncated
+    stream.close()  # idempotent, the SSE generator is exhausted
 
 
 def test_rewrite_without_history_does_not_call_the_model():
@@ -149,3 +162,28 @@ def test_answer_calls_model_with_context_and_streams():
     assert "".join(tokens).strip() == "Antwort [BHB-PLT-0007 S. 1]."
     with pytest.raises(ValueError):
         answer(_weak_result(weak=False), "Frage?", llm, context_limit_tokens=5)
+
+
+def test_answer_weak_follow_up_calls_the_model_with_the_note():
+    """REQ-001 R6: weak evidence on a follow-up is not a refusal — the model gets the history and the note."""
+    from rag_retrieval.prompt import WEAK_FOLLOW_UP_NOTE_DE
+
+    llm = FakeLLM("#!/bin/sh\nvault operator unseal")
+    history = [Message(role="user", content="Wie entsiegle ich den Vault?"), Message(role="assistant", content="vault operator unseal [BHB-PLT-0007 S. 19]")]
+    out = answer(_weak_result(), "Mach ein Script mit diesen Befehlen", llm, history)
+    assert out.startswith("#!/bin/sh") and len(llm.calls) == 1
+    msgs = llm.calls[0]
+    assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"]
+    assert WEAK_FOLLOW_UP_NOTE_DE in msgs[-1]["content"] and "## Quellen" not in msgs[-1]["content"]
+    # streaming variant and the first-turn refusal are unchanged
+    assert "".join(answer(_weak_result(), "q", llm, history, stream=True)).startswith("#!/bin/sh")
+    assert answer(_weak_result(), "q", llm) == NO_EVIDENCE_ANSWER and len(llm.calls) == 2
+
+
+def test_answer_passes_the_history_window():
+    llm = FakeLLM("ok")
+    history = [Message(role="user" if i % 2 == 0 else "assistant", content=f"m{i}") for i in range(8)]
+    answer(_weak_result(weak=False), "q", llm, history, max_history_turns=1)
+    assert [m["content"] for m in llm.calls[0][1:-1]] == ["m6", "m7"]
+    answer(_weak_result(weak=False), "q", llm, history)
+    assert [m["content"] for m in llm.calls[1][1:-1]] == ["m2", "m3", "m4", "m5", "m6", "m7"]

@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 Channel = Literal["knn", "bm25", "identifier", "label", "graph"]
 Polarity = Literal["positive", "negative", "unknown"]
-Mode = Literal["fast", "slow"]
+Mode = Literal["fast", "slow", "overview"]  # overview: REQ-001 R3, emitted from phase 4 on
 MatchedBy = Literal["label", "identifier", "hit", "neighbour"]
 
 

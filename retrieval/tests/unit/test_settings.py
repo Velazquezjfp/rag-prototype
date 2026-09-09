@@ -20,15 +20,17 @@ def test_defaults_come_from_packaged_config_yaml():
     assert s.embedding.model == "bge-m3" and s.embedding.dim == 1024
     assert s.llm.model == "gemini-dev"
     assert s.guardrail.enabled is True
+    assert s.retrieval.history_turns == 3
 
 
 def test_env_prefix_and_nested_delimiter(monkeypatch):
     monkeypatch.setenv("RAG__LLM__MODEL", "granite4")
     monkeypatch.setenv("RAG__RETRIEVAL__FINAL_K", "4")
+    monkeypatch.setenv("RAG__RETRIEVAL__HISTORY_TURNS", "10")
     monkeypatch.setenv("RAG__OPENSEARCH__URL", "https://search.internal:9200")
     s = Settings(_env_file=None)
     assert s.llm.model == "granite4"
-    assert s.retrieval.final_k == 4
+    assert s.retrieval.final_k == 4 and s.retrieval.history_turns == 10
     assert s.opensearch.url == "https://search.internal:9200"
 
 

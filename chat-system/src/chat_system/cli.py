@@ -78,9 +78,11 @@ def ask(
         for c in res.citations:
             title = f" · {c['doc_title']}" if c.get("doc_title") else ""
             typer.echo(f"  [{c['key']}]{title}")
+    extra = " · Folgefrage ohne neue Evidenz" if res.diagnostics.get("weak_follow_up") else ""
+    extra += " · Antwort gekürzt (max_tokens)" if res.finish_reason == "length" else ""
     typer.echo(
-        f"\n[{res.finish_reason} · {res.latency_ms} ms · guardrail={res.guardrail} · heute noch {res.remaining_today} Nachricht(en) · "
-        f"noch {res.turns_left} Runde(n) in diesem Gespräch]",
+        f"\n[{res.finish_reason} · {res.latency_ms} ms · Modus {res.diagnostics.get('mode')} · guardrail={res.guardrail}{extra} · "
+        f"heute noch {res.remaining_today} Nachricht(en) · noch {res.turns_left} Runde(n) in diesem Gespräch]",
         err=True,
     )
 

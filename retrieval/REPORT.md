@@ -58,7 +58,7 @@ Full texts in `out/questions/<n>-answer.txt` after `ANSWER=1 make questions`.
    edges. Only the label-token matcher reaches it (labels containing ≥ 2 question words). Anchoring that matcher to an
    exactly resolved label was necessary: unanchored, "Dispatcher neu starten" pulled in every "API-Server/Ingress-Router
    neu starten" statement.
-3. **Guardrail vs. graph channel.** The first version counted graph facts as evidence — the off-topic question then
+3. **Guardrail vs. graph channel** *(amended 2026-09-08 by `requirements/REQ-001`: a weak verdict refuses only a first turn; follow-ups are answered from the conversation, and fuzzy/glossary/overview evidence is planned)*.** The first version counted graph facts as evidence — the off-topic question then
    passed, because the expansion had been seeded from kNN-only hits. The verdict now looks at the search channels only
    and the expansion is skipped when the verdict is weak.
 4. **Seeds.** The Kaltstart table (11 StartupSteps) was kNN#2 but not in the fused top 5; the top two hits of every

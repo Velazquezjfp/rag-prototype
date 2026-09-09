@@ -175,12 +175,14 @@ def ask(
         _print_result(result, show_context=show_context, budget=budget)
     if not answer_:
         return
-    if result.weak_evidence and not force:
+    if result.weak_evidence and not force and not history:
         typer.echo("")
         typer.echo(f"Antwort: {answer_fn(result, question, llm, history)}")  # type: ignore[arg-type]
         raise typer.Exit(code=2)
     llm = llm or _llm(s)
     typer.echo("")
+    if result.weak_evidence and not force:
+        typer.echo("Hinweis: schwache Evidenz – Antwort aus dem Gesprächsverlauf (keine neuen Quellen)")
     typer.echo(f"Antwort ({model or s.llm.model}):")
     try:
         out = answer_fn(
@@ -194,11 +196,14 @@ def ask(
             token_budget=budget if budget is not None else s.retrieval.context_token_budget,
             max_facts=s.retrieval.max_facts_in_prompt,
             context_limit_tokens=s.llm.context_limit_tokens,
+            max_history_turns=s.retrieval.history_turns,
         )
         if stream:
             for tok in out:  # type: ignore[union-attr]
                 typer.echo(tok, nl=False)
             typer.echo("")
+            if getattr(out, "finish_reason", None) == "length":
+                typer.echo("[Antwort vom Modell gekürzt (max_tokens) – RAG__LLM__MAX_TOKENS erhöhen]", err=True)
         else:
             typer.echo(out)
     except Exception as exc:  # noqa: BLE001

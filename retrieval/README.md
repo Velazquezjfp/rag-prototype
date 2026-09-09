@@ -5,8 +5,9 @@ passages from OpenSearch (four search channels fused client-side), the graph fac
 entities the question names (one hop over the union graph of all indexed books), citations with document id and
 page for every source, a guardrail verdict, and the rendered German context block for the model. It also ships the
 OpenAI-compatible chat client (complete/stream), question rewriting from the last turns (SPEC §8) and `answer()`,
-which refuses without a model call when the evidence is weak (ADR-0011). Pure library + `rag-retrieve` CLI; the
-Streamlit UI (module `chat-system/`) only wraps it.
+which refuses without a model call when the evidence of a first turn is weak (ADR-0011) and answers a weak
+follow-up from the conversation ([`requirements/REQ-001`](requirements/REQ-001-robust-question-understanding.md)).
+Pure library + `rag-retrieve` CLI; the Streamlit UI (module `chat-system/`) only wraps it.
 
 Verified 2026-09-04 against the local stack (OpenSearch 3.8.0 with CaaS `BHB-PLT-0001` and ZSD `BHB-PLT-0007`
 indexed, bge-m3 embeddings and `gemini-dev` through the LiteLLM proxy): the 8 ground-truth questions of
@@ -39,7 +40,10 @@ question ──► analyze ──► embed ──► msearch (4 channels) ──
    cannot take the graph list.
 5. **Guardrail** (`guardrail.py`): weak evidence iff no identifier hit, no resolved label, and either BM25 found
    nothing or none of the top 3 fused chunks was found by two search channels. Rank/channel based only — bge-m3
-   cosine scores compress to ~0.96 for everything, so no absolute threshold (integration REPORT §7).
+   cosine scores compress to ~0.96 for everything, so no absolute threshold (integration REPORT §7). A weak verdict
+   refuses without a model call only on a first turn; with conversation history the model answers from the
+   conversation (REQ-001 R6, below). Planned (REQ-001 R1–R4): fuzzy and glossary entity matches and an overview
+   mode count as evidence.
 6. **Graph channel in slow mode** (`graph.py`, `facts.py`): start nodes = resolved labels, partial label matches,
    then node ids of the seed chunks (top fused hits plus the top hits of every channel), ordered by "label mentions
    a question word", the node types the question asks about, presence in several seeds, a static type priority.
@@ -53,11 +57,18 @@ question ──► analyze ──► embed ──► msearch (4 channels) ──
 7. **Groups and citations**: table parts with the same caption become one source (header rows once), pages are the
    union; one citation per (document, pages) plus one per fact.
 8. **Prompt** (`prompt.py`): German system prompt (cite as `[BHB-PLT-0007 S. 19]`, render NICHT facts as
-   negations, answer exactly "Dazu steht nichts in den Handbüchern." when the context has nothing) + context block
-   `## Entitäten` → `## Fakten` → `## Quellen`, budgeted with the stored `token_count` of every chunk.
-9. **Answer** (`chat.py`): `answer()` short-circuits on weak evidence, otherwise `ChatClient.complete()` or
-   `.stream()` (SSE) against the OpenAI-compatible endpoint; `rewrite_question()` turns a follow-up into a
-   standalone question from the last two turns and falls back to the original on any error.
+   negations; earlier answers of the conversation may be reused and transformed; a partial match or a question
+   without a concrete system gets "what the manuals contain" plus one clarifying question that names the systems
+   of the context as options; exactly "Dazu steht nichts in den Handbüchern." only when neither context nor
+   earlier answers hold anything — REQ-001 R5) + context block `## Entitäten` → `## Fakten` → `## Quellen`,
+   budgeted with the stored `token_count` of every chunk; the last `history_turns` user/assistant pairs (default
+   3, `RAG__RETRIEVAL__HISTORY_TURNS`) precede it. `OVERVIEW_INSTRUCTION_DE` is appended for overview results
+   (mode emitted from REQ-001 phase 4 on); `WEAK_FOLLOW_UP_NOTE_DE` replaces the context on a weak follow-up.
+9. **Answer** (`chat.py`): `answer()` refuses a weak *first* turn without a model call, answers a weak follow-up
+   from the conversation (`weak_note`), otherwise `ChatClient.complete()` or `.stream()` (SSE) against the
+   OpenAI-compatible endpoint. `.stream()` returns a `TokenStream` whose `finish_reason` (`length` = cut by
+   `max_tokens`) is known after the iteration — consumers read it duck-typed. `rewrite_question()` turns a
+   follow-up into a standalone question from the last two turns and falls back to the original on any error.
 
 ## Quick start
 
@@ -116,8 +127,8 @@ never leaks in. Secrets stay in `.env`.
 | `index` | `prefix` bhb | aliases `bhb-chunks`, `bhb-nodes`, `bhb-documents` |
 | `embedding` | `base_url` http://localhost:4000/v1, `api_key`, `model` bge-m3, `dim` 1024, `query_prefix` "", `timeout_s` 30, `max_attempts` 3 | must match `bhb-documents.embedding_model`; server: `intfloat/multilingual-e5-large` + `"query: "` |
 | `llm` | `base_url`, `api_key`, `model` gemini-dev, `temperature` 0.0, `max_tokens` 4000 (reasoning models think ~1300 tokens of it first), `timeout_s` 120, `max_attempts` 2, `context_limit_tokens` 32000 | the only place the chat model is configured (chat-system reuses it) |
-| `retrieval` | `k_per_channel` 20, `final_k` 10, `rrf_rank_constant` 60, `graph_seed_hits` 5, `graph_seed_per_channel` 2, `graph_max_start_nodes` 30, `graph_max_facts` 40, `graph_max_chunks` 15, `graph_min_sources` 2, `graph_max_entities` 15, `label_max_ngram` 4, `label_min_chars` 3, `partial_label_min_tokens` 2, `partial_label_max_nodes` 8, `context_token_budget` 6000, `max_facts_in_prompt` 25 | small Ollama models: budget 2500, `RAG__LLM__CONTEXT_LIMIT_TOKENS=4096` |
-| `guardrail` | `enabled` true, `min_agreeing_channels` 2, `top_n` 3 | ADR-0011 |
+| `retrieval` | `k_per_channel` 20, `final_k` 10, `rrf_rank_constant` 60, `graph_seed_hits` 5, `graph_seed_per_channel` 2, `graph_max_start_nodes` 30, `graph_max_facts` 40, `graph_max_chunks` 15, `graph_min_sources` 2, `graph_max_entities` 15, `label_max_ngram` 4, `label_min_chars` 3, `partial_label_min_tokens` 2, `partial_label_max_nodes` 8, `context_token_budget` 6000, `max_facts_in_prompt` 25, `history_turns` 3 | small Ollama models: budget 2500, `RAG__LLM__CONTEXT_LIMIT_TOKENS=4096`; large served context: `history_turns` 10 |
+| `guardrail` | `enabled` true, `min_agreeing_channels` 2, `top_n` 3 | ADR-0011, amended by REQ-001 (follow-up rule now; fuzzy/glossary/overview evidence planned) |
 | `ontology` | `path` ../user-manual-books/…/ontology.yaml | identifier regexes and relation `label_de` |
 
 ## CLI
@@ -125,7 +136,7 @@ never leaks in. Secrets stay in `.env`.
 | Command | What it does |
 |---|---|
 | `rag-retrieve ask "Frage" [--graph/--no-graph] [--k N] [--doc ID …] [--json] [--show-context] [--budget N]` | retrieval only: identifiers, labels, partial label matches, channels with timings, guardrail verdict, ranked sources with `via`, facts (NICHT prefixed), entity cards |
-| `… ask "Frage" --answer [--stream] [--model M] [--force] [--history-file h.json]` | plus the model answer; `--history-file` (JSON list of `{role, content}`) enables question rewriting; exit code 2 when the guardrail refuses (`--force` overrides) |
+| `… ask "Frage" --answer [--stream] [--model M] [--force] [--history-file h.json]` | plus the model answer; `--history-file` (JSON list of `{role, content}`) enables question rewriting and the follow-up rule (a weak verdict is then answered from the conversation, "Hinweis: schwache Evidenz"); exit code 2 only when the guardrail refuses a first turn (`--force` overrides); a truncated stream prints "[Antwort vom Modell gekürzt …]" |
 | `rag-retrieve graph-stats [--json]` | size of the in-memory union graph |
 | `rag-retrieve entities "Vault"` | resolve a label/alias to node ids across books, occurrences with attributes, 1-hop facts |
 | `rag-retrieve check [--json]` | aliases present, indexed documents and their embedding model vs the configured one, embedding probe (dimension), LLM probe; exit 1 when something is off |
@@ -135,7 +146,7 @@ Global options: `--url`, `--prefix`, `--ontology`, `--log-level` (set the corres
 ## Tests
 
 ```bash
-make test                                   # 103 unit tests, no services: fake OpenSearch client (cosine kNN, token-overlap
+make test                                   # 111 unit tests, no services: fake OpenSearch client (cosine kNN, token-overlap
                                             # BM25 with German stopwords, term/terms/bool, msearch, mget) over the indexer's
                                             # own transform of the small ZSD fixture; httpx.MockTransport for embed/chat
 RAG_INTEGRATION=1 make test-integration     # 13 live tests: check(), 1024-dim embedding, the ground-truth table of REPORT.md

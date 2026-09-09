@@ -16,7 +16,8 @@ root and answers a question from inside the container. Details and the answers: 
 
 ```
 sidebar user ─► AuthContext ─► Policy.check_message ─► reserve usage + store question ─► rewrite (history) ─►
-   Retriever.retrieve(k, doc_ids) ─► weak_evidence? ─► "Dazu steht nichts in den Handbüchern." (no model call)
+   Retriever.retrieve(k, doc_ids) ─► weak_evidence? ─► first turn: "Dazu steht nichts in den Handbüchern." (no model call)
+                                                     │  follow-up:  model with history + WEAK_FOLLOW_UP_NOTE_DE, nothing cited
                                                      └► build_messages ─► ChatClient.stream ─► persist answer + citations + diagnostics
 ```
 
@@ -34,12 +35,17 @@ sidebar user ─► AuthContext ─► Policy.check_message ─► reserve usage
    standalone question from the last `CHAT__RETRIEVAL__HISTORY_TURNS_FOR_REWRITE` turns; both forms are stored
    (ADR-0011: `question_rewritten` on the assistant row).
 6. **Retrieve**: `Retriever.retrieve(rewritten, use_graph, k = K_GRAPH|K, doc_ids)`.
-7. **Guardrail**: `weak_evidence` → the canned sentence is streamed, `guardrail=True`, `llm_called=False`, the model
-   is not called. Otherwise `build_messages(result, raw question, history)` with the retrieval module's budget and
-   the model's context limit.
+7. **Guardrail** ([`requirements/REQ-001`](requirements/REQ-001-robust-question-understanding.md)): `weak_evidence`
+   on a **first turn** → the canned sentence is streamed, `guardrail=True`, `llm_called=False`, the model is not
+   called. `weak_evidence` on a **follow-up** → the model is called with the history and the weak note instead of
+   the context (`weak_follow_up=True`, nothing cited). Otherwise `build_messages(result, raw question, history)`
+   with the retrieval module's budget, the model's context limit and the `RAG__RETRIEVAL__HISTORY_TURNS` window.
 8. **Stream + persist**: `TurnStream.tokens()` streams the model deltas (`st.write_stream` in the UI, stdout in the
-   CLI) and persists the assistant row exactly once — `finish_reason` `stop`, `guardrail`, `aborted` (the consumer
-   stopped: partial text kept) or `error` (model failed: German error text stored, usage refunded). Citations are
+   CLI) and persists the assistant row exactly once — `finish_reason` `stop`, `length` (cut by `max_tokens`: text
+   kept, the UI says "Antwort vom Modell gekürzt"), `guardrail`, `aborted` (the consumer stopped: partial text
+   kept) or `error` (model failed: German error text stored, usage refunded). The status line of the search names
+   what was used ("… (Graph)", "Keine belastbaren Treffer · … · Modell nicht aufgerufen", "Keine neuen Treffer ·
+   Antwort aus dem Gesprächsverlauf"). Citations are
    stored enriched (breadcrumb, channels, snippet), diagnostics as JSON (`rag_retrieval.Diagnostics` + rewrite,
    filter, model, timings, facts, entities, prompt size). The 10th turn marks the conversation `capped`.
 

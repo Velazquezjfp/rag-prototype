@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .chat import NO_EVIDENCE_ANSWER, ChatClient, answer, rewrite_question
+from .chat import NO_EVIDENCE_ANSWER, ChatClient, TokenStream, answer, rewrite_question
 from .models import (
     ChannelEvidence,
     ChannelStats,
@@ -18,13 +18,22 @@ from .models import (
     RetrievalResult,
     RewriteResult,
 )
-from .prompt import SYSTEM_PROMPT_DE, build_messages, estimate_tokens, render_context
+from .prompt import (
+    OVERVIEW_INSTRUCTION_DE,
+    SYSTEM_PROMPT_DE,
+    WEAK_FOLLOW_UP_NOTE_DE,
+    build_messages,
+    estimate_tokens,
+    render_context,
+)
 from .retriever import Retriever, default_retriever, retrieve
 from .settings import Settings, get_settings
 
 __all__ = [
     "NO_EVIDENCE_ANSWER",
+    "OVERVIEW_INSTRUCTION_DE",
     "SYSTEM_PROMPT_DE",
+    "WEAK_FOLLOW_UP_NOTE_DE",
     "ChannelEvidence",
     "ChannelStats",
     "ChatClient",
@@ -41,6 +50,7 @@ __all__ = [
     "Retriever",
     "RewriteResult",
     "Settings",
+    "TokenStream",
     "answer",
     "build_messages",
     "default_retriever",

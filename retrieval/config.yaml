@@ -53,6 +53,7 @@ retrieval:
   partial_label_max_nodes: 8
   context_token_budget: 6000           # rendered context (entities + facts + sources) for the prompt
   max_facts_in_prompt: 25
+  history_turns: 3                     # user/assistant pairs the prompt carries (REQ-001 R7); large-context models: 10
 
 guardrail:                             # ADR-0011: "Dazu steht nichts in den Handbüchern." without calling the model
   enabled: true

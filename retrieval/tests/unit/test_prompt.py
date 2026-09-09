@@ -14,7 +14,9 @@ from rag_retrieval.models import (
 )
 from rag_retrieval.prompt import (
     NO_EVIDENCE_ANSWER,
+    OVERVIEW_INSTRUCTION_DE,
     SYSTEM_PROMPT_DE,
+    WEAK_FOLLOW_UP_NOTE_DE,
     build_messages,
     estimate_tokens,
     merge_parts,
@@ -110,3 +112,33 @@ def test_build_messages_shape_history_and_limit():
     with pytest.raises(ValueError, match="context limit"):
         build_messages(res, "Frage?", context_limit_tokens=10)
     assert NO_EVIDENCE_ANSWER in SYSTEM_PROMPT_DE and "[BHB-PLT-0007 S. 19]" in SYSTEM_PROMPT_DE
+
+
+def test_rules_allow_reuse_of_earlier_answers_and_grade_the_refusal():
+    """REQ-001 R5: rule 1 permits transforming earlier answers, rule 3 asks back with options before refusing."""
+    assert "früheren Antworten in diesem Gespräch" in SYSTEM_PROMPT_DE and "Skript" in SYSTEM_PROMPT_DE
+    assert "welches System oder Handbuch gemeint ist" in SYSTEM_PROMPT_DE and "als Auswahl" in SYSTEM_PROMPT_DE
+    assert SYSTEM_PROMPT_DE.count(NO_EVIDENCE_ANSWER) == 1 and "ohne weitere Sätze" in SYSTEM_PROMPT_DE
+
+
+def test_overview_instruction_only_for_overview_results():
+    g = _group([_hit("c1", [4], "Text.")])
+    slow = build_messages(_result([g]), "Frage?")
+    assert OVERVIEW_INSTRUCTION_DE not in slow[0]["content"]
+    res = _result([g])
+    res.mode = "overview"
+    over = build_messages(res, "Frage?")
+    assert over[0]["content"].startswith(SYSTEM_PROMPT_DE.rstrip()) and over[0]["content"].endswith(OVERVIEW_INSTRUCTION_DE)
+    assert "eine Zeile je Eintrag" in OVERVIEW_INSTRUCTION_DE and "Rückfrage" in OVERVIEW_INSTRUCTION_DE
+    custom = build_messages(res, "Frage?", system_prompt="S")
+    assert custom[0]["content"] == "S\n\n" + OVERVIEW_INSTRUCTION_DE
+
+
+def test_weak_note_replaces_the_context_and_keeps_the_history():
+    g = _group([_hit("c1", [4], "Text.")])
+    history = [Message(role="user", content="Wie entsiegle ich den Vault?"), {"role": "assistant", "content": "vault operator unseal [BHB-PLT-0007 S. 19]"}]
+    msgs = build_messages(_result([g], weak=True), "Mach ein Script daraus", history, weak_note=True)
+    assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"]
+    assert "## Quellen" not in msgs[-1]["content"] and "Text." not in msgs[-1]["content"]
+    assert msgs[-1]["content"].startswith("Kontext:\n" + WEAK_FOLLOW_UP_NOTE_DE) and msgs[-1]["content"].endswith("Frage: Mach ein Script daraus")
+    assert NO_EVIDENCE_ANSWER in WEAK_FOLLOW_UP_NOTE_DE and "früheren Antworten" in WEAK_FOLLOW_UP_NOTE_DE

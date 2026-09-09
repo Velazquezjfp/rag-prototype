@@ -63,6 +63,7 @@ def test_guardrail_answer_is_shown_with_note(ui):
     assert not at.exception, at.exception
     assert "Dazu steht nichts in den Handbüchern." in at.chat_message[1].markdown[0].value
     assert any("Schutzmechanismus" in c.value for c in at.caption)
+    # the st.status element does not survive the rerun that follows a turn; its label is tested in test_ui_labels.py
 
 
 def test_user_switch_changes_identity_and_quota(ui):

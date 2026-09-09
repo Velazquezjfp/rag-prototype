@@ -84,6 +84,7 @@ class RetrievalSettings(BaseModel):
     partial_label_max_nodes: int = 8
     context_token_budget: int = 6000
     max_facts_in_prompt: int = 25
+    history_turns: int = 3  # user/assistant pairs the prompt carries; the server sets 10 (REQ-001 R7)
 
 
 class GuardrailSettings(BaseModel):
