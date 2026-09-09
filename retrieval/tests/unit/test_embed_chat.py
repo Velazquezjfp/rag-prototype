@@ -91,6 +91,17 @@ def test_chat_complete_payload_and_probe():
     llm.close()
 
 
+def test_chat_payload_merges_extra_body_only_when_set():
+    """REQ-002 R9: RAG__LLM__EXTRA_BODY reaches the request (e.g. Ollama's think switch); never overrides core keys."""
+    seen: list = []
+    llm = ChatClient(LLMSettings(base_url="http://llm/v1", api_key="k", model="m", max_tokens=9, extra_body={"think": False, "model": "x"}), transport=_chat_transport("ok", seen=seen))
+    llm.complete([{"role": "user", "content": "hi"}])
+    assert seen[0]["think"] is False and seen[0]["model"] == "m" and seen[0]["max_tokens"] == 9
+    seen.clear()
+    stream = ChatClient(LLMSettings(base_url="http://llm/v1", api_key="k", model="m", extra_body={"think": False}), transport=_chat_transport("a|b", sse=True, seen=seen))
+    assert "".join(stream.stream([{"role": "user", "content": "hi"}])) == "ab" and seen[0]["think"] is False and seen[0]["stream"] is True
+
+
 def test_chat_complete_full_reports_truncation():
     llm = ChatClient(LLMSettings(base_url="http://llm/v1", model="m"), transport=_chat_transport("abgeschnitten…"))
     c = llm.complete_full([{"role": "user", "content": "x"}])
@@ -187,3 +198,23 @@ def test_answer_passes_the_history_window():
     assert [m["content"] for m in llm.calls[0][1:-1]] == ["m6", "m7"]
     answer(_weak_result(weak=False), "q", llm, history)
     assert [m["content"] for m in llm.calls[1][1:-1]] == ["m2", "m3", "m4", "m5", "m6", "m7"]
+
+
+def test_answer_assistant_profile_never_short_circuits():
+    """REQ-002 R5: the assistant profile always calls the model; the block comes back raw for the caller to split."""
+    from rag_retrieval.analysis import AnalysisSplitter, split_analysis
+    from rag_retrieval.prompt import ASSISTANT_SYSTEM_PROMPT_DE
+
+    llm = FakeLLM("<einordnung>\nAufgabe: Erklärung\nBereich: innerhalb\nSystem: unklar\nGrundlage: Fachwissen\n</einordnung>\nExit-Code 137 bedeutet OOMKilled (allgemeines Fachwissen, nicht aus den Handbüchern).")
+    out = answer(_weak_result(), "Was bedeutet Exit-Code 137?", llm, profile="assistant", ecosystem="- BHB-PLT-0007 „ZSD“")
+    assert out.startswith("<einordnung>") and len(llm.calls) == 1
+    msgs = llm.calls[0]
+    assert msgs[0]["content"].startswith(ASSISTANT_SYSTEM_PROMPT_DE.rstrip()) and "Handbücher im System:\n- BHB-PLT-0007" in msgs[0]["content"]
+    assert "Evidenzlage: schwach (r)" in msgs[-1]["content"] and msgs[-1]["content"].endswith("Frage: Was bedeutet Exit-Code 137?")
+    analysis, rest = split_analysis(out)
+    assert analysis.task == "Erklärung" and analysis.systems is None and rest.startswith("Exit-Code 137")
+    stream = AnalysisSplitter(answer(_weak_result(), "q", llm, stream=True, profile="assistant", material="$ oc get nodes"))
+    assert "".join(stream).startswith("Exit-Code") and stream.analysis.basis == ["Fachwissen"]
+    assert "Material (vom Nutzer" in llm.calls[-1][-1]["content"]
+    # strict stays as before
+    assert answer(_weak_result(), "q", llm) == NO_EVIDENCE_ANSWER and len(llm.calls) == 2

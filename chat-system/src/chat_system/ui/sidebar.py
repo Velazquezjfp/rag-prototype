@@ -16,6 +16,12 @@ from ..settings import Settings
 NEW_LABEL = "— neues Gespräch —"
 
 
+def mode_caption(profile: str, guardrail_enabled: bool) -> str:
+    """Which behaviour answers (REQ-002 R1/R10): the strict manual answers or the technical assistant."""
+    name = "Technik-Assistent" if profile == "assistant" else "Handbuch-Antworten"
+    return f"Modus: {name} · Guardrail {'an' if guardrail_enabled else 'aus'}"
+
+
 @dataclass
 class SidebarState:
     conversation_id: str | None
@@ -69,6 +75,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings) -> SidebarSta
 
     with st.sidebar:
         st.caption(f"**{ctx.user_id}** · {', '.join(ctx.groups) or '–'}")
+        st.caption(mode_caption(getattr(svc, "profile", "strict"), bool(getattr(svc, "guardrail_enabled", True))))
         q = svc.quota(ctx)
         st.metric("Nachrichten heute", f"{q.used_today}/{q.daily_cap}", help=f"Tageslimit der Gruppe; max. {q.max_turns} Runden pro Gespräch")
 

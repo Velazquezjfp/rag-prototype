@@ -13,7 +13,7 @@ import httpx
 from .llm_http import LLMClient, LLMHTTPError
 from .models import Message, RetrievalResult, RewriteResult
 from .prompt import NO_EVIDENCE_ANSWER, build_messages
-from .settings import LLMSettings
+from .settings import LLMSettings, PromptProfile
 
 log = logging.getLogger(__name__)
 
@@ -93,12 +93,16 @@ class ChatClient:
     def _payload(
         self, messages: Sequence[Mapping[str, str]], *, model: str | None, max_tokens: int | None, temperature: float | None
     ) -> dict[str, Any]:
-        return {
+        payload: dict[str, Any] = {
             "model": model or self.settings.model,
             "messages": [dict(m) for m in messages],
             "temperature": self.settings.temperature if temperature is None else temperature,
             "max_tokens": max_tokens or self.settings.max_tokens,
         }
+        extra = getattr(self.settings, "extra_body", None)
+        if extra:  # deployment knob (REQ-002 R9): e.g. {"think": false} switches Gemma's thinking off on Ollama
+            payload.update({k: v for k, v in dict(extra).items() if k not in payload})
+        return payload
 
     def complete_full(
         self,
@@ -210,12 +214,17 @@ def answer(
     context_limit_tokens: int | None = None,
     max_history_turns: int = 3,
     doc_ids: Sequence[str] | None = None,
+    profile: PromptProfile = "strict",
+    material: str | None = None,
+    ecosystem: str | None = None,
 ) -> str | Iterable[str]:
     """Guardrail first (ADR-0011, amended by REQ-001 R6): weak evidence on a *first* turn answers
     ``NO_EVIDENCE_ANSWER`` without a model call unless ``force``; on a follow-up (``history`` given) the model is
-    called with the conversation and ``WEAK_FOLLOW_UP_NOTE_DE`` instead of the context."""
+    called with the conversation and ``WEAK_FOLLOW_UP_NOTE_DE`` instead of the context. In the ``assistant`` profile
+    (REQ-002 R5) the verdict never blocks: the model is always called and sees the ``Evidenzlage`` instead. The raw
+    model output is returned — callers take the ``<einordnung>`` block off with ``analysis.AnalysisSplitter``."""
     weak_note = False
-    if result.weak_evidence and not force:
+    if profile == "strict" and result.weak_evidence and not force:
         if not history:
             return iter([NO_EVIDENCE_ANSWER]) if stream else NO_EVIDENCE_ANSWER
         weak_note = True
@@ -230,6 +239,9 @@ def answer(
         context_limit_tokens=context_limit_tokens,
         weak_note=weak_note,
         doc_ids=doc_ids,
+        profile=profile,
+        material=material,
+        ecosystem=ecosystem,
     )
     if stream:
         return llm.stream(messages, model=model)

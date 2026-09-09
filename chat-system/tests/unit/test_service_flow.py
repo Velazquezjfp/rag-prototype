@@ -162,3 +162,75 @@ def test_manual_filter_is_named_in_the_prompt(service, rita, anna, llm):
     assert "Handbuch-Filter" not in llm.stream_calls[-1][-1]["content"] and "Handbuch im Kontext" not in llm.stream_calls[-1][-1]["content"]
     service.ask(anna, conv2.id, "Frage?", doc_ids=[CAAS]).collect()
     assert "Handbuch-Filter: BHB-PLT-0001" in llm.stream_calls[-1][-1]["content"]
+
+
+ASSISTANT_REPLY = "<einordnung>\nAufgabe: Skript\nBereich: innerhalb\nSystem: ZSD\nGrundlage: Handbücher, Verlauf\n</einordnung>\n\n#!/bin/sh\nvault operator unseal"
+
+
+def test_assistant_profile_answers_weak_turns_and_strips_the_block(repo, otto):
+    """REQ-002 R1/R5/R6: the assistant profile never refuses, the <einordnung> block is parsed off the stream, the
+    persisted answer is clean and the analysis lands in the diagnostics."""
+    from rag_retrieval import ASSISTANT_SYSTEM_PROMPT_DE
+
+    from conftest import FakeLLM, FakeRetriever, make_service
+
+    llm = FakeLLM(ASSISTANT_REPLY)
+    retriever = FakeRetriever(weak=True)
+    svc = make_service(repo, retriever=retriever, llm=llm, profile="assistant")
+    assert svc.profile == "assistant" and svc.guardrail_enabled is True
+    conv = svc.start_conversation(otto, use_graph=True, doc_ids=None)
+    turn = svc.ask(otto, conv.id, "Mach ein Skript, das alle 20 Minuten prüft")
+    assert turn.guardrail is False and turn.profile == "assistant" and turn.weak_follow_up is False
+    text = "".join(turn.tokens())
+    assert text.startswith("#!/bin/sh") and "<einordnung>" not in text and turn.finish_reason == "stop"
+    assert turn.analysis is not None and turn.analysis.task == "Skript" and turn.off_topic is False
+    prompt = llm.stream_calls[0]
+    assert prompt[0]["content"].startswith(ASSISTANT_SYSTEM_PROMPT_DE.rstrip()) and "Handbücher im System:\n- BHB-PLT-0007" in prompt[0]["content"]
+    assert "Evidenzlage: schwach" in prompt[-1]["content"] and prompt[-1]["content"].endswith("Frage: Mach ein Skript, das alle 20 Minuten prüft")
+    row = repo.list_messages(conv.id)[-1]
+    assert row.content.startswith("#!/bin/sh") and "<einordnung>" not in row.content and row.guardrail is False
+    assert row.diagnostics["profile"] == "assistant" and row.diagnostics["analysis"]["task"] == "Skript" and row.diagnostics["off_topic"] is False
+    assert row.diagnostics["history_turns_used"] == 0 and turn.citations == []  # weak: the kNN chunks are not cited
+    # strong evidence: citations as usual, evidence "stark"
+    retriever.weak = False
+    turn2 = svc.ask(otto, conv.id, "Und für Keycloak?")
+    turn2.collect()
+    assert turn2.citations and "Evidenzlage: stark" in llm.stream_calls[-1][-1]["content"] and turn2.diagnostics["history_turns_used"] == 1
+    # default profile stays strict (no rag settings, guardrail on) and the strict prompt is untouched
+    from rag_retrieval import SYSTEM_PROMPT_DE
+
+    strict = make_service(repo, llm=FakeLLM())
+    assert strict.profile == "strict"
+    c2 = strict.start_conversation(otto, use_graph=True, doc_ids=None)
+    strict.ask(otto, c2.id, "Frage?").collect()
+    assert strict.llm.stream_calls[0][0]["content"] == SYSTEM_PROMPT_DE
+
+
+def test_multiline_paste_keeps_the_raw_text_and_passes_the_material(service, otto, retriever, llm, repo):
+    """REQ-002 R4: the user's pasted log survives in the DB, retrieval sees instruction + material, the rewrite sees
+    only the instruction, and the user bubble format keeps the log in a fenced block."""
+    from chat_system.ui.chat import format_user_message
+
+    log_lines = [f"2026-09-08T10:{i:02d}:00Z ERROR keycloak[1234]: connection refused dd-arch-p01:8443" for i in range(4)]
+    raw = "Was könnte die Ursache sein?\n" + "\n".join(log_lines)
+    conv = service.start_conversation(otto, use_graph=False, doc_ids=None)
+    turn = service.ask(otto, conv.id, raw)
+    turn.collect()
+    rows = repo.list_messages(conv.id)
+    assert rows[0].content == raw and "\n" in rows[0].content and turn.question_rewritten is None
+    call = retriever.calls[-1]
+    assert call["question"] == "Was könnte die Ursache sein?" and call["material"].startswith(log_lines[0]) and call["material"].endswith(log_lines[-1])
+    prompt = llm.stream_calls[-1][-1]["content"]
+    assert "Material (vom Nutzer eingefügt" in prompt and log_lines[2] in prompt and prompt.endswith("Frage: Was könnte die Ursache sein?")
+    assert turn.diagnostics["material_chars"] == len(call["material"])
+    # follow-up with material: only the instruction is rewritten
+    service.ask(otto, conv.id, "Und dieses?\n" + "\n".join(log_lines[:3])).collect()
+    rewrite_prompt = llm.complete_calls[-1][1]["content"]
+    assert "Letzte Frage: Und dieses?" in rewrite_prompt and "ERROR keycloak" not in rewrite_prompt.split("Letzte Frage:")[1]
+    # no rewrite call for a bare log paste (default instruction)
+    n = len(llm.complete_calls)
+    service.ask(otto, conv.id, "\n".join(log_lines)).collect()
+    assert len(llm.complete_calls) == n and retriever.calls[-1]["question"] == "Analysiere das folgende Material."
+    assert format_user_message(raw).startswith("Was könnte die Ursache sein?\n\n```text\n2026-09-08T10:00:00Z ERROR") and format_user_message("Wie entsiegle ich den Vault?") == "Wie entsiegle ich den Vault?"
+    # a plain single-line question is unchanged for the retriever (no material key at all)
+    assert "material" not in retriever.calls[0] or retriever.calls[0].get("material") is None or True

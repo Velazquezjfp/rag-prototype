@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import streamlit as st
+from rag_retrieval import split_material
 from rag_users import AuthContext
 
 from ..service import ERROR_TEXT_DE, ChatService, TurnRefused
@@ -14,18 +15,46 @@ from .sidebar import SidebarState
 CAPPED_TEXT_DE = "Dieses Gespräch hat die maximale Länge erreicht. Bitte ein neues Gespräch beginnen."
 GUARDRAIL_NOTE_DE = "Schutzmechanismus: keine belastbaren Treffer in den Handbüchern – das Sprachmodell wurde nicht aufgerufen."
 WEAK_FOLLOW_UP_NOTE_DE = "Folgefrage ohne neue Treffer – Antwort aus dem Gesprächsverlauf, keine neuen Quellen."
+OUT_OF_SCOPE_NOTE_DE = "Außerhalb des Aufgabenbereichs – der Technik-Assistent hilft nur beim Betrieb der dokumentierten Systeme."
+INJECTION_NOTE_DE = "Hinweis: Die Eingabe enthielt Formulierungen wie Anweisungen an das Modell; sie wurden als Daten behandelt."
 MODE_LABEL_DE = {"fast": "schnell", "slow": "Graph", "overview": "Übersicht"}
+INPUT_PLACEHOLDER_DE = "Frage oder Material (Log, Befehle) einfügen – Shift+Enter für einen Zeilenumbruch"
 
 
 def status_label(turn: Any) -> str:
-    """What the search status line says once retrieval is done — honest about what was used (REQ-001 R9)."""
+    """What the search status line says once retrieval is done — honest about what was used (REQ-001 R9; REQ-002:
+    the assistant profile names itself and the assessed evidence instead of a verdict)."""
     r = turn.result
     if turn.guardrail:
         return "Keine belastbaren Treffer · schwache Evidenz · Modell nicht aufgerufen"
     if getattr(turn, "weak_follow_up", False):
         return "Keine neuen Treffer · Antwort aus dem Gesprächsverlauf"
     mode = MODE_LABEL_DE.get(r.mode, r.mode)
-    return f"{len(r.groups)} Quellen · {len(r.facts)} Fakten · {len(r.entities)} Entitäten ({mode})"
+    counts = f"{len(r.groups)} Quellen · {len(r.facts)} Fakten · {len(r.entities)} Entitäten"
+    if getattr(turn, "profile", "strict") == "assistant":
+        weak = bool(getattr(r.diagnostics, "assessed_weak", False)) or bool(r.weak_evidence)
+        return f"Technik-Assistent · {counts} · Evidenz {'schwach' if weak else 'stark'} ({mode})"
+    return f"{counts} ({mode})"
+
+
+def format_user_message(raw: str) -> str:
+    """The user bubble: the instruction as text, pasted material in a fenced block (REQ-002 R4) — ``st.markdown``
+    would otherwise swallow the line breaks of a log."""
+    split = split_material(raw)
+    if not split.material:
+        return raw
+    fence = "````" if "```" in split.material else "```"
+    return f"{split.instruction}\n\n{fence}text\n{split.material}\n{fence}"
+
+
+def analysis_caption(analysis: dict[str, Any]) -> str:
+    """One line from the persisted Einordnung (``Analysis.as_dict()``): Aufgabe · Bereich · System · Grundlage."""
+    bits = [f"Aufgabe: {analysis.get('task') or 'Sonstiges'}", f"Bereich: {'innerhalb' if analysis.get('in_scope', True) else 'außerhalb'}"]
+    if analysis.get("systems"):
+        bits.append(f"System: {analysis['systems']}")
+    if analysis.get("basis"):
+        bits.append("Grundlage: " + ", ".join(analysis["basis"]))
+    return "Einordnung: " + " · ".join(bits)
 
 
 def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: SidebarState) -> None:
@@ -33,7 +62,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: Sideba
     messages: list[dict[str, Any]] = ss.setdefault("messages", [])
     for m in messages:
         with st.chat_message(m["role"]):
-            st.markdown(m["content"])
+            st.markdown(m["content"] if m["role"] == "assistant" else format_user_message(m["content"]))
             if m["role"] == "assistant":
                 render_extras(m, state.show_diagnostics)
 
@@ -42,7 +71,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: Sideba
         st.chat_input("Gespräch beendet", disabled=True)
         return
 
-    prompt = st.chat_input("Frage an die Betriebshandbücher …")
+    prompt = st.chat_input(INPUT_PLACEHOLDER_DE)
     if not prompt:
         return
 
@@ -51,7 +80,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: Sideba
         ss.conversation_id = conv.id
 
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(format_user_message(prompt))
 
     try:
         with st.status("Suche in den Handbüchern …", expanded=False) as status:
@@ -106,11 +135,19 @@ def render_extras(m: dict[str, Any], show_diagnostics: bool) -> None:
                     st.caption(c["snippet"])
                 for fact in c.get("facts") or []:
                     st.caption(f"Fakt: {fact}")
+    d = m.get("diagnostics") or {}
+    analysis = d.get("analysis")
     if m.get("guardrail"):
         st.caption(GUARDRAIL_NOTE_DE)
-    elif (m.get("diagnostics") or {}).get("weak_follow_up"):
+    elif d.get("weak_follow_up"):
         st.caption(WEAK_FOLLOW_UP_NOTE_DE)
-    elif m.get("finish_reason") == "aborted":
+    elif analysis and not analysis.get("in_scope", True):
+        st.caption(OUT_OF_SCOPE_NOTE_DE)
+    elif analysis:
+        st.caption(analysis_caption(analysis))
+    if d.get("injection_suspected"):
+        st.caption(INJECTION_NOTE_DE)
+    if m.get("finish_reason") == "aborted":
         st.caption("Antwort abgebrochen – Text unvollständig.")
     elif m.get("finish_reason") == "length":
         st.caption("Antwort vom Modell gekürzt (max_tokens).")
@@ -122,11 +159,25 @@ def render_extras(m: dict[str, Any], show_diagnostics: bool) -> None:
 def render_diagnostics(d: dict[str, Any], rewritten: str | None) -> None:
     mode = d.get("mode")
     st.markdown(
-        f"**Modus** {mode} ({MODE_LABEL_DE.get(mode, mode)}) · **Modell** {d.get('model') or '–'} · **Modell aufgerufen** {d.get('llm_called')} · "
+        f"**Modus** {mode} ({MODE_LABEL_DE.get(mode, mode)}) · **Profil** {d.get('profile', 'strict')} · **Modell** {d.get('model') or '–'} · **Modell aufgerufen** {d.get('llm_called')} · "
         f"**schwache Evidenz** {d.get('weak_evidence')}" + (f" ({d.get('weak_evidence_reason')})" if d.get("weak_evidence_reason") else "")
+        + (f" · **Evidenz bewertet (Guardrail aus)** {'schwach' if d.get('assessed_weak') else 'stark'}" + (f" ({d.get('assessed_reason')})" if d.get("assessed_reason") else "") if d.get("guardrail_enabled") is False else "")
         + (" · **Folgefrage ohne neue Evidenz** True" if d.get("weak_follow_up") else "")
         + (" · **Antwort gekürzt (max_tokens)**" if d.get("finish_reason") == "length" else "")
     )
+    if d.get("analysis") or d.get("material_chars") or d.get("injection_suspected") or d.get("history_turns_used"):
+        bits = []
+        if d.get("material_chars"):
+            bits.append(f"**Material** {d['material_chars']} Zeichen" + (" (gekürzt)" if d.get("material_truncated") else ""))
+        if d.get("history_turns_used"):
+            bits.append(f"**Verlauf im Prompt** {d['history_turns_used']} Runden")
+        if d.get("injection_suspected"):
+            bits.append("**Anweisungs-Formulierungen** " + ", ".join(d["injection_suspected"]))
+        if bits:
+            st.markdown(" · ".join(bits))
+        if d.get("analysis"):
+            st.markdown("**Einordnung (Modell):**")
+            st.code(d["analysis"].get("raw") or "", language="text")
     if rewritten or d.get("rewritten_question"):
         st.markdown(f"**Umformulierte Frage:** {rewritten or d.get('rewritten_question')}")
     if d.get("doc_ids"):

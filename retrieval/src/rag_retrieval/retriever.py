@@ -24,6 +24,7 @@ from .fusion import RawHit, group_hits, rrf, to_chunk_hits
 from .graph import GraphStats, GraphStore
 from .guardrail import decide
 from .llm_http import LLMHTTPError
+from .material import compose_query, injection_markers, is_truncated
 from .models import (
     Channel,
     ChannelStats,
@@ -35,6 +36,7 @@ from .models import (
     RetrievalResult,
     format_pages,
 )
+from .prompt import ecosystem_summary
 from .query import QueryPlan, analyze_question
 from .settings import Settings, get_settings, redact_url
 
@@ -89,6 +91,10 @@ class Retriever:
             self._graph = store
         return store.stats()
 
+    def ecosystem_summary(self, doc_ids: Collection[str] | None = None, *, max_tokens: int = 400) -> str:
+        """The manuals, systems and counts the assistant profile is grounded in (REQ-002 R3)."""
+        return ecosystem_summary(self.graph, list(doc_ids) if doc_ids else None, max_tokens=max_tokens)
+
     # ------------------------------------------------------------------ retrieval
 
     def retrieve(
@@ -98,7 +104,10 @@ class Retriever:
         use_graph: bool = True,
         k: int | None = None,
         doc_ids: Collection[str] | None = None,
+        material: str | None = None,
     ) -> RetrievalResult:
+        """``material`` (REQ-002 R4) is pasted log/command text: it never enters the analysis or the embedding as a
+        whole — the query becomes ``question`` + its identifiers + a few signature lines (``compose_query``)."""
         s = self.settings.retrieval
         graph = self.graph
         final_k = k or s.final_k
@@ -106,11 +115,12 @@ class Retriever:
         timings: dict[str, int] = {}
         warnings: list[str] = []
         t_total = time.perf_counter()
+        query = compose_query(question, material, self.ontology.regexes) if material else question
 
         # 1. analyze (no I/O)
         t0 = time.perf_counter()
         plan = analyze_question(
-            question,
+            query,
             regexes=self.ontology.regexes,
             graph=graph,
             max_ngram=s.label_max_ngram,
@@ -125,7 +135,7 @@ class Retriever:
         t0 = time.perf_counter()
         vector: list[float] | None = None
         try:
-            vector = self.embedder.embed(question)
+            vector = self.embedder.embed(query)
         except (EmbeddingError, LLMHTTPError) as exc:
             warnings.append(f"knn channel skipped: {str(exc)[:200]}")
             log.warning("embedding failed, continuing without kNN: %s", exc)
@@ -137,7 +147,7 @@ class Retriever:
         bodies: dict[Channel, dict[str, Any]] = {}
         if vector is not None:
             bodies["knn"] = search.knn_body(vector, k_channel, doc_ids)
-        bodies["bm25"] = search.bm25_body(question, k_channel, doc_ids)
+        bodies["bm25"] = search.bm25_body(query, k_channel, doc_ids)
         if plan.identifiers:
             bodies["identifier"] = search.identifier_body(plan.identifiers, k_channel, doc_ids)
         if plan.label_terms:
@@ -203,7 +213,7 @@ class Retriever:
                         seed_ids.append(raw.chunk_id)
             by_id = {h.chunk_id: h for h in hits}
             seed_hits = [by_id[c] for c in seed_ids if c in by_id]
-            boost_types = facts_mod.type_boost(question)
+            boost_types = facts_mod.type_boost(query)
             start_nodes = facts_mod.select_start_nodes(
                 graph,
                 label_nodes=label_nodes,
@@ -221,7 +231,7 @@ class Retriever:
                 label_nodes=[*label_nodes, *plan.partial_nodes],
                 relation_labels=self.relation_labels,
                 max_facts=s.graph_max_facts,
-                boost=facts_mod.relation_boost(question),
+                boost=facts_mod.relation_boost(query),
             )
             reached: list[str] = []
             for f in facts:
@@ -290,7 +300,7 @@ class Retriever:
 
         info = list(graph.documents.values())
         diagnostics = Diagnostics(
-            question=question,
+            question=query,
             mode="slow" if use_graph else "fast",
             identifiers=plan.identifiers,
             label_candidates=plan.label_candidates,
@@ -303,6 +313,12 @@ class Retriever:
             indexed_embedding_models=sorted({d.embedding_model for d in info if d.embedding_model}),
             indexed_text_prefix=next((d.embedding_text_prefix for d in info if d.embedding_text_prefix is not None), None),
             warnings=warnings,
+            guardrail_enabled=self.settings.guardrail.enabled,
+            assessed_weak=verdict.assessed_weak,
+            assessed_reason=verdict.assessed_reason,
+            material_chars=len(material) if material else 0,
+            material_truncated=is_truncated(material),
+            injection_suspected=injection_markers(question + ("\n" + material if material else "")),
         )
         return RetrievalResult(
             question=question,
@@ -444,10 +460,11 @@ def retrieve(
     k: int | None = None,
     doc_ids: Collection[str] | None = None,
     retriever: Retriever | None = None,
+    material: str | None = None,
 ) -> RetrievalResult:
     """SPEC §7.1 entry point over a process-wide default ``Retriever`` (settings from env/.env/config.yaml)."""
     r = retriever if retriever is not None else default_retriever()
-    return r.retrieve(question, use_graph=use_graph, k=k, doc_ids=doc_ids)
+    return r.retrieve(question, use_graph=use_graph, k=k, doc_ids=doc_ids, material=material)
 
 
 __all__ = ["QueryPlan", "Retriever", "ChunkHit", "default_retriever", "retrieve"]

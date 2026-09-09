@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any, Literal
 
 from opensearch_index.settings import OpenSearchSettings
 from pydantic import BaseModel, Field
@@ -31,11 +32,16 @@ __all__ = [
     "LLMSettings",
     "OntologySettings",
     "OpenSearchSettings",
+    "PromptProfile",
+    "PromptSettings",
     "RetrievalSettings",
     "Settings",
     "config_path",
     "get_settings",
+    "resolve_profile",
 ]
+
+PromptProfile = Literal["strict", "assistant"]
 
 
 class IndexSettings(BaseModel):
@@ -65,6 +71,9 @@ class LLMSettings(BaseModel):
     timeout_s: float = 120.0
     max_attempts: int = 2
     context_limit_tokens: int = 32000
+    # Extra JSON keys merged into every chat-completions request (deployment knob, REQ-002 R9), e.g.
+    # RAG__LLM__EXTRA_BODY='{"think": false}' for Ollama or '{"chat_template_kwargs": {"enable_thinking": false}}' for vLLM.
+    extra_body: dict[str, Any] = Field(default_factory=dict)
 
 
 class RetrievalSettings(BaseModel):
@@ -93,6 +102,13 @@ class GuardrailSettings(BaseModel):
     top_n: int = 3
 
 
+class PromptSettings(BaseModel):
+    """Which system prompt drives the answer (REQ-002 R1): ``strict`` = manuals only (ADR-0011), ``assistant`` = the
+    technical assistant with the prompt-level chain of thought; ``auto`` = assistant iff the guardrail is disabled."""
+
+    profile: Literal["auto", "strict", "assistant"] = "auto"
+
+
 class OntologySettings(BaseModel):
     path: str = "../user-manual-books/handbuch_daten/Ontologie/ontology.yaml"
 
@@ -112,6 +128,7 @@ class Settings(BaseSettings):
     llm: LLMSettings = Field(default_factory=LLMSettings)
     retrieval: RetrievalSettings = Field(default_factory=RetrievalSettings)
     guardrail: GuardrailSettings = Field(default_factory=GuardrailSettings)
+    prompt: PromptSettings = Field(default_factory=PromptSettings)
     ontology: OntologySettings = Field(default_factory=OntologySettings)
 
     @classmethod
@@ -144,6 +161,18 @@ def config_path() -> Path | None:
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
+
+
+def resolve_profile(settings: Any) -> PromptProfile:
+    """The effective prompt profile: an explicit ``prompt.profile`` wins; ``auto`` follows the guardrail switch
+    (guardrail disabled -> ``assistant``). Duck-typed so chat-system can pass its ``rag_settings`` object."""
+    prompt = getattr(settings, "prompt", None)
+    wanted = getattr(prompt, "profile", "auto") if prompt is not None else "auto"
+    if wanted in ("strict", "assistant"):
+        return wanted  # type: ignore[return-value]
+    guardrail = getattr(settings, "guardrail", None)
+    enabled = bool(getattr(guardrail, "enabled", True)) if guardrail is not None else True
+    return "strict" if enabled else "assistant"
 
 
 def redact_url(base_url: str, api_key: str | None) -> dict[str, str]:

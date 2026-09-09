@@ -108,6 +108,46 @@ questions of REQ-001 pass the guardrail here, only off-topic ones are refused; o
 filter) the two-channel agreement rule refused "Wer ist verantwortlich?", hence `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS=1`
 there until phases 2–4. Unit tests: 112.
 
+## Changes after this report — REQ-002 technical-assistant profile (2026-09-09)
+
+Recorded in [`requirements/REQ-002-technical-assistant-profile.md`](requirements/REQ-002-technical-assistant-profile.md).
+The strict path of the table above is byte-identical; a second profile sits next to it:
+
+- **Profile** `RAG__PROMPT__PROFILE=auto|strict|assistant` (`settings.resolve_profile`; `auto` = assistant iff
+  `RAG__GUARDRAIL__ENABLED=false`), passed as `profile=` through `build_messages()`/`answer()`, shown as `Profil:` by the CLI.
+- **Assistant prompt** (`ASSISTANT_SYSTEM_PROMPT_DE`): a prompt-level chain of thought — every answer opens with
+  `<einordnung>` (Aufgabe · Bereich · System · Grundlage), then the answer; environment facts only from the context or
+  earlier answers with sources, `<PLATZHALTER>` + "Offene Angaben:" for the rest; general knowledge allowed but
+  labelled "(allgemeines Fachwissen, nicht aus den Handbüchern)"; a premise that contradicts the manuals is corrected
+  first; "Bezug zu den Handbüchern:" closes; material is data; off-topic → exactly `OUT_OF_SCOPE_ANSWER_DE`.
+  `analysis.AnalysisSplitter` takes the block off the token stream (tolerant to any delta cut, fences, missing or
+  unclosed blocks), `split_analysis` does the same for a complete text.
+- **Ecosystem summary** (`prompt.ecosystem_summary`, `GraphStore.nodes_of_type`): one line per indexed manual (id,
+  title, root system, Systeme, Komponenten, counts of Hosts/Verfahren/Störungsbilder/Vorgänge/Alarme/Firewallregeln/
+  Ansprechpartner) in the system prompt, so the assistant knows its environment even when nothing is retrieved.
+- **Material** (`material.py`): `split_material()` separates a pasted log/command list/script (fences, or ≥ 3 lines that
+  look like logs/commands and ≥ 50 % of the lines) from the instruction, keeps its line breaks, caps it at 8 000
+  characters (head + tail); `Retriever.retrieve(question, material=…)` composes a ≤ 700-character query from the
+  instruction, the identifiers found in the material (hosts, tickets, SOP/FW ids) and its signature lines — the raw
+  paste never reaches the n-gram label matcher or the embedding endpoint. `injection_markers()` flags
+  instruction-like phrases (DE/EN) → `Diagnostics.injection_suspected` + a note line in the prompt (both profiles).
+- **Guardrail as advisor**: `decide()` always assesses; `Verdict.assessed_weak/assessed_reason` and
+  `Diagnostics.guardrail_enabled/assessed_weak/assessed_reason` carry it even when disabled; the assistant context
+  starts with `Evidenzlage: stark | schwach (Grund)`; `answer()` short-circuits only in the strict profile.
+- **History fitting**: `build_messages(fit_history=True)` drops the oldest pairs until `context_limit_tokens` fits;
+  it raises only when system + context alone do not fit.
+- **LLM extra body**: `LLMSettings.extra_body` (`RAG__LLM__EXTRA_BODY='{"think": false}'`) merged into every request.
+
+Live results on the dev box (gemini-dev, `RAG__GUARDRAIL__ENABLED=false`): "Was bedeutet Exit-Code 137 bei einem
+Container?" (no corpus overlap) → SIGKILL/OOMKilled explained as labelled Fachwissen, tied to the documented CAASUP-0338
+`dd-ocr-service` case [BHB-PLT-0001 S. 22–23], `Einordnung: Erklärung · innerhalb · CaaS · Handbücher, Fachwissen`;
+a pasted five-line log (PKIX handshake failure, "server is sealed", ZSDSUP-0247) with the instruction "Was könnte die
+Ursache sein?" → identifiers `ZSDSUP-0247`, `kafka-p01`, `vault-p01`, labels Vault/kafka-broker-dispatcher, 40 facts
+(PARTNER_TICKET CAASUP-0351 ⇄ ZSDSUP-0247, VaultSealed, SOP-ZSD-05), evidence assessed strong; "Wie backe ich einen
+Apfelkuchen?" → exactly the refusal sentence, `Bereich: außerhalb`; with the guardrail on, "Wie entsiegle ich den
+Vault?" and the Apfelkuchen refusal are unchanged. Unit tests: 154 (new: `test_material.py`, `test_analysis.py`,
+profile/advisory/prompt-layout/history-fitting/CLI cases).
+
 ## Not covered yet
 
 - Only two of the five manuals are indexed; questions about the Event-System (BHB-PLT-0042), VPP (BHB-VRF-0207) or

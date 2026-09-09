@@ -158,11 +158,19 @@ class FakeRetriever:
         self.fail = fail
         self.calls: list[dict[str, Any]] = []
 
-    def retrieve(self, question: str, *, use_graph: bool = True, k: int | None = None, doc_ids=None) -> RetrievalResult:
-        self.calls.append({"question": question, "use_graph": use_graph, "k": k, "doc_ids": list(doc_ids) if doc_ids else None})
+    def retrieve(self, question: str, *, use_graph: bool = True, k: int | None = None, doc_ids=None, **kwargs: Any) -> RetrievalResult:
+        call: dict[str, Any] = {"question": question, "use_graph": use_graph, "k": k, "doc_ids": list(doc_ids) if doc_ids else None}
+        if "material" in kwargs:  # REQ-002 R4: recorded only when the service passed it (existing exact-call asserts stay)
+            call["material"] = kwargs["material"]
+        self.calls.append(call)
         if self.fail is not None:
             raise self.fail
         return make_result(question, weak=self.weak, mode="slow" if use_graph else "fast", doc_ids=list(doc_ids) if doc_ids else None)
+
+    def ecosystem_summary(self, doc_ids=None) -> str:
+        docs = [d for d in (ZSD, CAAS) if not doc_ids or d in doc_ids]
+        titles = {ZSD: "Betriebshandbuch ZSD", CAAS: "Betriebshandbuch CaaS-Plattform"}
+        return "\n".join(f"- {d} „{titles[d]}“: Systeme: Vault" for d in docs)
 
 
 class FakeLLMSettings:
@@ -232,7 +240,7 @@ def service(repo, policy, retriever, llm, settings, clock) -> ChatService:
     return ChatService(repo, policy, retriever, llm, settings, catalog=lambda: list(CATALOG), clock=clock)
 
 
-def make_service(repo, *, retriever=None, llm=None, settings=None, policy=None, clock=None, catalog=None) -> ChatService:
+def make_service(repo, *, retriever=None, llm=None, settings=None, policy=None, clock=None, catalog=None, profile=None) -> ChatService:
     return ChatService(
         repo,
         policy or Policy(),
@@ -241,6 +249,7 @@ def make_service(repo, *, retriever=None, llm=None, settings=None, policy=None, 
         settings or Settings(_env_file=None, db={"url": "sqlite://"}),
         catalog=catalog or (lambda: list(CATALOG)),
         clock=clock or Clock(),
+        profile=profile,
     )
 
 

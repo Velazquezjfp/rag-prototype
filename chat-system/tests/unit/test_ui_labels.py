@@ -27,3 +27,25 @@ def test_status_label_is_honest_about_what_was_used():
     overview.mode = "overview"
     assert status_label(_turn(overview)).endswith("(Übersicht)")
     assert MODE_LABEL_DE["overview"] == "Übersicht" and "Gesprächsverlauf" in WEAK_FOLLOW_UP_NOTE_DE
+
+
+def test_assistant_labels_and_captions():
+    """REQ-002 R10: the status line names the assistant and the assessed evidence; captions and the sidebar line are
+    pure functions of the persisted diagnostics."""
+    from chat_system.ui.chat import analysis_caption, format_user_message
+    from chat_system.ui.sidebar import mode_caption
+
+    strong = _turn(make_result("Mach ein Skript"))
+    strong.profile = "assistant"
+    assert status_label(strong) == "Technik-Assistent · 2 Quellen · 1 Fakten · 1 Entitäten · Evidenz stark (Graph)"
+    weak = make_result("Exit-Code 137?", weak=True)
+    weak.weak_evidence = False  # guardrail off: nothing blocks, but the assessment says weak
+    weak.diagnostics.assessed_weak = True
+    w = _turn(weak)
+    w.profile = "assistant"
+    assert status_label(w).startswith("Technik-Assistent · ") and "Evidenz schwach" in status_label(w)
+    assert analysis_caption({"task": "Skript", "in_scope": True, "systems": "ZSD", "basis": ["Handbücher", "Verlauf"]}) == "Einordnung: Aufgabe: Skript · Bereich: innerhalb · System: ZSD · Grundlage: Handbücher, Verlauf"
+    assert analysis_caption({"in_scope": False}) == "Einordnung: Aufgabe: Sonstiges · Bereich: außerhalb"
+    assert mode_caption("assistant", False) == "Modus: Technik-Assistent · Guardrail aus"
+    assert mode_caption("strict", True) == "Modus: Handbuch-Antworten · Guardrail an"
+    assert format_user_message("Frage?\n$ oc get nodes\n$ oc get co\n$ vault status\n" * 5).count("```text") == 1

@@ -14,7 +14,17 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Literal
 
-from rag_retrieval import NO_EVIDENCE_ANSWER, RetrievalResult, build_messages, rewrite_question
+from rag_retrieval import (
+    DEFAULT_INSTRUCTION_DE,
+    NO_EVIDENCE_ANSWER,
+    Analysis,
+    AnalysisSplitter,
+    RetrievalResult,
+    build_messages,
+    resolve_profile,
+    rewrite_question,
+    split_material,
+)
 from rag_users import REASON_TEXT_DE, AuthContext, Decision, Policy
 
 from .db import utcnow
@@ -86,6 +96,9 @@ class _Turn:
     prompt_chars: int = 0
     used_today: int = 0
     turns_in_conversation: int = 0
+    profile: str = "strict"  # REQ-002 R1: strict (manuals only) | assistant (technical assistant, block parsed off)
+    instruction: str = ""  # the request without pasted material (REQ-002 R4)
+    material: str | None = None
 
 
 SNIPPET_CHARS = 240
@@ -139,6 +152,7 @@ class TurnStream:
         self.message_id: int | None = None
         self.llm_called = False
         self._stream_ms: int | None = None
+        self.analysis: Analysis | None = None  # the parsed <einordnung> block (assistant profile), known after streaming
 
     # ---- what the UI may read before/while streaming
     @property
@@ -154,6 +168,15 @@ class TurnStream:
         return self._turn.messages is None
 
     @property
+    def profile(self) -> str:
+        return self._turn.profile
+
+    @property
+    def off_topic(self) -> bool:
+        """The assistant profile judged the request outside its scope (REQ-002 R2 rule 1)."""
+        return self.analysis is not None and not self.analysis.in_scope
+
+    @property
     def question_rewritten(self) -> str | None:
         return self._turn.question_rewritten
 
@@ -165,12 +188,15 @@ class TurnStream:
     def citations(self) -> list[dict[str, Any]]:
         # a weak result cites nothing: the kNN channel always returns chunks, but none of them is evidence — this holds
         # for the guardrail turn and for a follow-up answered from the conversation (REQ-001 R6)
-        return [] if self.guardrail or self._turn.result.weak_evidence else enrich_citations(self._turn.result)
+        if self.guardrail or self._turn.result.weak_evidence or self.off_topic:
+            return []
+        return enrich_citations(self._turn.result)
 
     @property
     def weak_follow_up(self) -> bool:
-        """Weak evidence, but the model was called with the conversation (REQ-001 R6)."""
-        return self._turn.messages is not None and self._turn.result.weak_evidence
+        """Weak evidence, but the model was called with the conversation (REQ-001 R6; strict profile only — the
+        assistant profile sees the Evidenzlage instead)."""
+        return self._turn.messages is not None and self._turn.result.weak_evidence and self._turn.profile == "strict"
 
     @property
     def facts(self) -> list[dict[str, Any]]:
@@ -204,6 +230,12 @@ class TurnStream:
             "facts": self.facts,
             "entities": [e.rendered for e in t.result.entities],
             "finish_reason": self.finish_reason,
+            # REQ-002
+            "profile": t.profile,
+            "analysis": self.analysis.as_dict() if self.analysis is not None else None,
+            "off_topic": self.off_topic,
+            "material_chars": len(t.material) if t.material else 0,
+            "history_turns_used": max(0, (len(t.messages) - 2) // 2) if t.messages else 0,
         }
 
     # ---- streaming
@@ -221,7 +253,9 @@ class TurnStream:
         stream = None
         try:
             stream = self._svc.llm.stream(t.messages)
-            for delta in stream:
+            # assistant profile: the <einordnung> block is taken off before anything reaches the UI or the DB (R6)
+            it = AnalysisSplitter(stream) if t.profile == "assistant" else stream
+            for delta in it:
                 if self._first_token_ms is None:
                     self._first_token_ms = int((time.perf_counter() - self._t0) * 1000)
                 self._text.append(delta)
@@ -236,6 +270,7 @@ class TurnStream:
             log.warning("LLM stream failed for conversation %s: %s", t.conversation_id, exc)
             self._finish("error", error=exc)
             raise
+        self.analysis = getattr(it, "analysis", None)
         # duck-typed: rag_retrieval.TokenStream knows how the model stopped, a plain generator does not
         truncated = getattr(stream, "finish_reason", None) == "length"
         self._finish("length" if truncated else "stop")
@@ -319,6 +354,7 @@ class ChatService:
         rag_settings: Any | None = None,
         catalog: Callable[[], list[dict[str, Any]]] | None = None,
         clock: Callable[[], datetime] = utcnow,
+        profile: str | None = None,
     ) -> None:
         self.repo = repo
         self.policy = policy
@@ -326,6 +362,8 @@ class ChatService:
         self.llm = llm
         self.settings = settings
         self.rag_settings = rag_settings
+        # REQ-002 R1: strict unless RAG__PROMPT__PROFILE says otherwise (auto = assistant iff the guardrail is off)
+        self.profile: str = profile or (resolve_profile(rag_settings) if rag_settings is not None else "strict")
         self._catalog = catalog
         self._clock = clock
         self._semaphore = threading.BoundedSemaphore(max(1, settings.limits.max_concurrent_answers))
@@ -339,6 +377,10 @@ class ChatService:
             self._semaphore.release()
         except ValueError:  # released more often than acquired: never happens, never fatal
             log.error("semaphore over-released")
+
+    @property
+    def guardrail_enabled(self) -> bool:
+        return bool(getattr(getattr(self.rag_settings, "guardrail", None), "enabled", True))
 
     @property
     def model_name(self) -> str | None:
@@ -382,9 +424,11 @@ class ChatService:
         use_graph: bool | None = None,
         doc_ids: Sequence[str] | None = None,
     ) -> TurnStream:
-        question = " ".join(question.split())
-        if not question:
+        raw = question.strip()  # line breaks stay: a pasted log or script is material, not whitespace (REQ-002 R4)
+        if not raw:
             raise ValueError("empty question")
+        split = split_material(raw)
+        instruction, material = split.instruction, split.material
         conv = self.repo.get_conversation(conversation_id, ctx.user_id)
         if conv is None:
             raise TurnRefused("forbidden", FORBIDDEN_CONVERSATION_DE, self.quota(ctx).remaining_today)
@@ -413,42 +457,54 @@ class ChatService:
         try:
             # (3) reservation + user message in one transaction
             history_rows = self.repo.list_messages(conversation_id)
-            _user_msg, used = self.repo.begin_turn(conversation_id, question, user_id=ctx.user_id, day=today)
+            _user_msg, used = self.repo.begin_turn(conversation_id, raw, user_id=ctx.user_id, day=today)
             reserved = True
             history = [{"role": m.role, "content": m.content} for m in history_rows if m.role in ("user", "assistant")]
 
             # (4) rewrite from the last turns (SPEC §8)
             timings: dict[str, int] = {}
             rewritten: str | None = None
-            if history:
+            if history and instruction != DEFAULT_INSTRUCTION_DE:  # the instruction is rewritten, never the material
                 t0 = time.perf_counter()
-                rw = rewrite_question(history, question, self.llm, max_turns=self.settings.retrieval.history_turns_for_rewrite)
+                rw = rewrite_question(history, instruction, self.llm, max_turns=self.settings.retrieval.history_turns_for_rewrite)
                 timings["rewrite"] = int((time.perf_counter() - t0) * 1000)
-                if rw.rewritten and rw.rewritten != question:
+                if rw.rewritten and rw.rewritten != instruction:
                     rewritten = rw.rewritten
-            effective_question = rewritten or question
+            effective_question = rewritten or instruction
 
             # (5) retrieve with the effective document filter
             k = self.settings.retrieval.k_graph if use_graph else self.settings.retrieval.k
             effective_doc_ids = list(decision.doc_ids) if decision.doc_ids else None
             t0 = time.perf_counter()
+            retrieve_kwargs: dict[str, Any] = {"material": material} if material else {}
             result: RetrievalResult = self.retriever.retrieve(
-                effective_question, use_graph=use_graph, k=k, doc_ids=effective_doc_ids
+                effective_question, use_graph=use_graph, k=k, doc_ids=effective_doc_ids, **retrieve_kwargs
             )
             timings["retrieve"] = int((time.perf_counter() - t0) * 1000)
 
             # (6) guardrail or prompt (REQ-001 R6: a weak verdict refuses only on the first turn; a follow-up is
-            #     answered from the conversation with WEAK_FOLLOW_UP_NOTE_DE instead of the context)
+            #     answered from the conversation with WEAK_FOLLOW_UP_NOTE_DE instead of the context).
+            #     REQ-002 R5: the assistant profile is always answered; the verdict is only the Evidenzlage.
+            assistant = self.profile == "assistant"
             messages: list[dict[str, str]] | None = None
             prompt_chars = 0
-            if not result.weak_evidence or history:
-                kwargs: dict[str, Any] = {"weak_note": result.weak_evidence, "doc_ids": effective_doc_ids}
+            if assistant or not result.weak_evidence or history:
+                kwargs: dict[str, Any] = {
+                    "weak_note": result.weak_evidence and not assistant,
+                    "doc_ids": effective_doc_ids,
+                    "profile": self.profile,
+                    "material": material,
+                }
+                if assistant:
+                    summary = getattr(self.retriever, "ecosystem_summary", None)
+                    if summary is not None:
+                        kwargs["ecosystem"] = summary(effective_doc_ids)
                 if self.rag_settings is not None:
                     kwargs["context_limit_tokens"] = self.rag_settings.llm.context_limit_tokens
                     kwargs["token_budget"] = self.rag_settings.retrieval.context_token_budget
                     kwargs["max_facts"] = self.rag_settings.retrieval.max_facts_in_prompt
                     kwargs["max_history_turns"] = getattr(self.rag_settings.retrieval, "history_turns", 3)
-                messages = build_messages(result, question, history, **kwargs)
+                messages = build_messages(result, instruction, history, **kwargs)
                 prompt_chars = sum(len(m["content"]) for m in messages)
         except BaseException as exc:
             self._fail_before_stream(ctx, conversation_id, use_graph, exc, today, reserved=reserved)
@@ -457,7 +513,7 @@ class ChatService:
         turn = _Turn(
             ctx=ctx,
             conversation_id=conversation_id,
-            question_raw=question,
+            question_raw=raw,
             question_rewritten=rewritten,
             use_graph=use_graph,
             doc_ids=effective_doc_ids,
@@ -469,6 +525,9 @@ class ChatService:
             prompt_chars=prompt_chars,
             used_today=used,
             turns_in_conversation=turns,
+            profile=self.profile,
+            instruction=instruction,
+            material=material,
         )
         return TurnStream(self, turn)
 

@@ -22,6 +22,19 @@ follow-ups answered from the conversation, configurable history window, `finish_
 stream, and a `Handbuch-Filter` scope line so the model does not ask which manual when one is selected. Live-checked
 on the dev box; the guardrail rule itself is unchanged (relaxation = REQ-001 phases 2–4).
 
+Updated 2026-09-09 ([`requirements/REQ-002`](requirements/REQ-002-technical-assistant-profile.md)): a second
+**technical-assistant profile** (`RAG__PROMPT__PROFILE=auto|strict|assistant`, `auto` = assistant iff
+`RAG__GUARDRAIL__ENABLED=false`) answers craft requests — scripts, log analysis, adapting commands — grounded in the
+manuals: a prompt-level chain of thought (`<einordnung>` block: Aufgabe · Bereich · System · Grundlage, taken off the
+stream by `AnalysisSplitter`), environment facts only from the context or earlier answers with `<PLATZHALTER>` for
+the rest, general knowledge allowed but labelled, off-topic requests refused with one sentence, instructions inside
+pasted material treated as data. Deterministic layers around the one model call: `split_material()` separates a
+pasted log/script from the instruction and `Retriever.retrieve(material=…)` searches only its identifiers and
+signature lines; the guardrail always assesses and blocks only in the strict profile (`Evidenzlage: stark | schwach`
+in the context); an `ecosystem_summary()` of the indexed manuals sits in the system prompt; the history is trimmed
+to the context limit instead of failing; `RAG__LLM__EXTRA_BODY` reaches the request (e.g. Ollama `{"think": false}`).
+The strict profile is byte-identical to before. 154 unit tests.
+
 ## How a question is answered
 
 ```
@@ -133,9 +146,10 @@ never leaks in. Secrets stay in `.env`.
 | `opensearch` | `url` http://localhost:9200, `username`, `password`, `verify_certs`, `ca_certs`, `timeout_s`, `max_retries` | same shape as `OSI__OPENSEARCH__*`; the client ignores proxy variables |
 | `index` | `prefix` bhb | aliases `bhb-chunks`, `bhb-nodes`, `bhb-documents` |
 | `embedding` | `base_url` http://localhost:4000/v1, `api_key`, `model` bge-m3, `dim` 1024, `query_prefix` "", `timeout_s` 30, `max_attempts` 3 | must match `bhb-documents.embedding_model`; server: `intfloat/multilingual-e5-large` + `"query: "` |
-| `llm` | `base_url`, `api_key`, `model` gemini-dev, `temperature` 0.0, `max_tokens` 4000 (reasoning models think ~1300 tokens of it first), `timeout_s` 120, `max_attempts` 2, `context_limit_tokens` 32000 | the only place the chat model is configured (chat-system reuses it) |
+| `llm` | `base_url`, `api_key`, `model` gemini-dev, `temperature` 0.0, `max_tokens` 4000 (reasoning models think ~1300 tokens of it first), `timeout_s` 120, `max_attempts` 2, `context_limit_tokens` 32000, `extra_body` {} | the only place the chat model is configured (chat-system reuses it); `extra_body` = JSON merged into every request, e.g. `{"think": false}` (REQ-002 R9) |
 | `retrieval` | `k_per_channel` 20, `final_k` 10, `rrf_rank_constant` 60, `graph_seed_hits` 5, `graph_seed_per_channel` 2, `graph_max_start_nodes` 30, `graph_max_facts` 40, `graph_max_chunks` 15, `graph_min_sources` 2, `graph_max_entities` 15, `label_max_ngram` 4, `label_min_chars` 3, `partial_label_min_tokens` 2, `partial_label_max_nodes` 8, `context_token_budget` 6000, `max_facts_in_prompt` 25, `history_turns` 3 | small Ollama models: budget 2500, `RAG__LLM__CONTEXT_LIMIT_TOKENS=4096`; large served context: `history_turns` 10 |
-| `guardrail` | `enabled` true, `min_agreeing_channels` 2, `top_n` 3 | ADR-0011, amended by REQ-001 (follow-up rule now; fuzzy/glossary/overview evidence planned) |
+| `guardrail` | `enabled` true, `min_agreeing_channels` 2, `top_n` 3 | ADR-0011, amended by REQ-001 (follow-up rule now; fuzzy/glossary/overview evidence planned); `enabled false` = the verdict only advises (`Diagnostics.assessed_weak/assessed_reason`, REQ-002 R5) |
+| `prompt` | `profile` auto | `auto` = assistant iff the guardrail is off; `strict` = manuals only; `assistant` = technical assistant (REQ-002 R1) |
 | `ontology` | `path` ../user-manual-books/…/ontology.yaml | identifier regexes and relation `label_de` |
 
 ## CLI
@@ -143,6 +157,7 @@ never leaks in. Secrets stay in `.env`.
 | Command | What it does |
 |---|---|
 | `rag-retrieve ask "Frage" [--graph/--no-graph] [--k N] [--doc ID …] [--json] [--show-context] [--budget N]` | retrieval only: identifiers, labels, partial label matches, channels with timings, guardrail verdict, ranked sources with `via`, facts (NICHT prefixed), entity cards |
+| `… ask "Frage" [--profile strict\|assistant] [--material-file m.log]` | REQ-002: `--profile` overrides the resolved profile (`Profil:` line); a pasted log/command list in the question is split into instruction + material automatically, `--material-file` attaches one (`Material: n Zeichen`, `Suchanfrage:` = the bounded query; identifiers and signature lines of the material drive the exact channels); in the assistant profile the `<einordnung>` block is removed from the answer and printed as `[Einordnung: …]`, a weak verdict is reported but never refuses |
 | `… ask "Frage" --answer [--stream] [--model M] [--force] [--history-file h.json]` | plus the model answer; `--history-file` (JSON list of `{role, content}`) enables question rewriting and the follow-up rule (a weak verdict is then answered from the conversation, "Hinweis: schwache Evidenz"); exit code 2 only when the guardrail refuses a first turn (`--force` overrides); a truncated stream prints "[Antwort vom Modell gekürzt …]" |
 | `rag-retrieve graph-stats [--json]` | size of the in-memory union graph |
 | `rag-retrieve entities "Vault"` | resolve a label/alias to node ids across books, occurrences with attributes, 1-hop facts |
@@ -153,7 +168,7 @@ Global options: `--url`, `--prefix`, `--ontology`, `--log-level` (set the corres
 ## Tests
 
 ```bash
-make test                                   # 112 unit tests, no services: fake OpenSearch client (cosine kNN, token-overlap
+make test                                   # 154 unit tests, no services: fake OpenSearch client (cosine kNN, token-overlap
                                             # BM25 with German stopwords, term/terms/bool, msearch, mget) over the indexer's
                                             # own transform of the small ZSD fixture; httpx.MockTransport for embed/chat
 RAG_INTEGRATION=1 make test-integration     # 13 live tests: check(), 1024-dim embedding, the ground-truth table of REPORT.md

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import sys
+from pathlib import Path
 from typing import Any
 
 import typer
@@ -33,6 +34,7 @@ def ask(
     conversation: str | None = typer.Option(None, "--conversation", help="continue this conversation id"),
     doc_id: list[str] = typer.Option([], "--doc-id", help="restrict to these manuals (repeatable)"),
     json_out: bool = typer.Option(False, "--json", help="print the TurnResult as JSON instead of streaming"),
+    material_file: Path | None = typer.Option(None, "--material-file", help="log/command text appended to the question as material (REQ-002)"),
     log_level: str = typer.Option("WARNING", "--log-level"),
 ) -> None:
     from rag_users import EnvAuthAdapter, Unauthenticated
@@ -52,6 +54,8 @@ def ask(
             conv, _ = svc.resume(ctx, conversation)
         else:
             conv = svc.start_conversation(ctx, use_graph=graph, doc_ids=doc_id or None)
+        if material_file is not None:
+            question = question + "\n" + material_file.read_text(encoding="utf-8")
         turn = svc.ask(ctx, conv.id, question, use_graph=graph, doc_ids=doc_id or None)
     except TurnRefused as exc:
         typer.echo(f"abgelehnt ({exc.reason}): {exc.message_de}", err=True)
@@ -80,8 +84,12 @@ def ask(
             typer.echo(f"  [{c['key']}]{title}")
     extra = " · Folgefrage ohne neue Evidenz" if res.diagnostics.get("weak_follow_up") else ""
     extra += " · Antwort gekürzt (max_tokens)" if res.finish_reason == "length" else ""
+    extra += " · Außerhalb des Aufgabenbereichs" if res.diagnostics.get("off_topic") else ""
+    if res.diagnostics.get("analysis"):
+        a = res.diagnostics["analysis"]
+        extra += f" · Einordnung: {a.get('task')} / {'innerhalb' if a.get('in_scope', True) else 'außerhalb'}" + (f" / {a['systems']}" if a.get("systems") else "")
     typer.echo(
-        f"\n[{res.finish_reason} · {res.latency_ms} ms · Modus {res.diagnostics.get('mode')} · guardrail={res.guardrail}{extra} · "
+        f"\n[{res.finish_reason} · {res.latency_ms} ms · Modus {res.diagnostics.get('mode')} · Profil {res.diagnostics.get('profile')} · guardrail={res.guardrail}{extra} · "
         f"heute noch {res.remaining_today} Nachricht(en) · noch {res.turns_left} Runde(n) in diesem Gespräch]",
         err=True,
     )

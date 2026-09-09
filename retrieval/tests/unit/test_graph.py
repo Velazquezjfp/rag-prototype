@@ -98,3 +98,15 @@ def test_real_ostermann_alias_and_shared_person(real_graph):
     ids = real_graph.resolve("kai ostermann")
     assert ids and any(len({o.doc_id for o in real_graph.occurrences(n)}) == 2 for n in ids)
     assert real_graph.resolve("ostermann")  # alias / short-form node
+
+
+def test_nodes_of_type_orders_by_type_then_label_and_filters_by_document(graph_small):
+    """REQ-002 R3 / REQ-001 D3: listing nodes by ontology type from the in-memory graph."""
+    systems = graph_small.nodes_of_type(["System"])
+    assert systems and all(graph_small.type_of(n) == "System" for n in systems)
+    labels = [graph_small.label(n).casefold() for n in systems]
+    assert labels == sorted(labels)
+    mixed = graph_small.nodes_of_type(["Component", "System"])
+    assert graph_small.type_of(mixed[0]) == "Component" and mixed[-1] in systems and len(mixed) == len(systems) + 1
+    assert graph_small.nodes_of_type(["System"], doc_ids=["BHB-PLT-0007"]) == systems
+    assert graph_small.nodes_of_type(["System"], doc_ids=["BHB-PLT-0001"]) == [] and graph_small.nodes_of_type(["Nope"]) == []

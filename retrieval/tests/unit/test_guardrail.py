@@ -35,3 +35,14 @@ def test_agreement_in_top_n_is_strong():
     hits = [_hit(1, "knn"), _hit(2, "knn", "bm25"), _hit(3, "bm25")]
     assert decide(enabled=True, hits=hits, identifier_hits=0, label_nodes=0, bm25_returned=5).weak_evidence is False
     assert decide(enabled=True, hits=hits, identifier_hits=0, label_nodes=0, bm25_returned=5, top_n=1).weak_evidence is True
+
+
+def test_disabled_guardrail_still_assesses_the_evidence():
+    """REQ-002 R5: switched off, the verdict never blocks but still says what the rules would have decided."""
+    v = decide(enabled=False, hits=[_hit(1, "knn")], identifier_hits=0, label_nodes=0, bm25_returned=0)
+    assert v.weak_evidence is False and v.reason is None
+    assert v.assessed_weak is True and "lexical" in v.assessed_reason
+    strong = decide(enabled=False, hits=[_hit(1, "knn")], identifier_hits=1, label_nodes=0, bm25_returned=0)
+    assert strong.assessed_weak is False and strong.assessed_reason is None
+    on = decide(enabled=True, hits=[], identifier_hits=0, label_nodes=0, bm25_returned=0)
+    assert (on.weak_evidence, on.reason) == (on.assessed_weak, on.assessed_reason) == (True, "no chunk found by any channel")

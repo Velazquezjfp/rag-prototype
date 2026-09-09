@@ -59,3 +59,18 @@ def test_weak_follow_up_is_answered_from_the_conversation(repo, otto):
     conv2 = svc.start_conversation(otto, use_graph=True, doc_ids=None)
     first = svc.ask(otto, conv2.id, "Wie backe ich einen Apfelkuchen?")
     assert first.guardrail is True and first.weak_follow_up is False and list(first.tokens()) == [NO_EVIDENCE_ANSWER]
+
+
+def test_off_topic_analysis_blanks_the_citations(repo, otto):
+    """REQ-002 R2 rule 1 / R6: the model's own scope verdict ("Bereich: außerhalb") is honoured — no sources, flagged."""
+    from rag_retrieval import OUT_OF_SCOPE_ANSWER_DE
+
+    llm = FakeLLM("<einordnung>\nAufgabe: Sonstiges\nBereich: außerhalb\nSystem: unklar\nGrundlage: Fachwissen\n</einordnung>\n" + OUT_OF_SCOPE_ANSWER_DE)
+    svc = make_service(repo, retriever=FakeRetriever(weak=False), llm=llm, profile="assistant")
+    conv = svc.start_conversation(otto, use_graph=True, doc_ids=None)
+    turn = svc.ask(otto, conv.id, "Wie backe ich einen Apfelkuchen?")
+    assert "".join(turn.tokens()).strip() == OUT_OF_SCOPE_ANSWER_DE
+    assert turn.off_topic is True and turn.citations == [] and turn.guardrail is False and turn.finish_reason == "stop"
+    row = repo.list_messages(conv.id)[-1]
+    assert row.citations == [] and row.diagnostics["off_topic"] is True and row.diagnostics["analysis"]["in_scope"] is False
+    assert row.content.strip() == OUT_OF_SCOPE_ANSWER_DE and repo.usage().count(otto.user_id, TODAY) == 1

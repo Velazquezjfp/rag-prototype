@@ -18,6 +18,15 @@ shown as `length`, the search status line says what was used, the active manual 
 the model does not ask which manual, the history window is `RAG__RETRIEVAL__HISTORY_TURNS`, and picking a past
 conversation in the sidebar loads it again (regression fix). Now 54 unit tests and 5 AppTest smokes.
 
+Updated 2026-09-09 ([`requirements/REQ-002`](requirements/REQ-002-technical-assistant-profile.md)): with
+`RAG__GUARDRAIL__ENABLED=false` (profile `auto`) the chat runs the retrieval module's **Technik-Assistent** profile:
+scripts, log analysis and command adaptation grounded in the manuals. The sidebar shows the active mode, a pasted log
+or script stays intact (line breaks kept in the DB, shown in a fenced block, searched via its identifiers only), the
+model's `<einordnung>` block is taken off the stream and shown as one "Einordnung:" caption (task, scope, system,
+basis; persisted in the diagnostics), an off-topic verdict blanks the citations and gets its own caption, the status
+line names the assistant and the assessed evidence, `chat-ask --material-file` attaches a log. Now 58 unit tests and
+6 AppTest smokes.
+
 ## How a question is answered
 
 ```
@@ -40,12 +49,16 @@ sidebar user ─► AuthContext ─► Policy.check_message ─► reserve usage
 5. **Rewrite** (SPEC §8): from the second turn on, `rag_retrieval.rewrite_question` turns the follow-up into a
    standalone question from the last `CHAT__RETRIEVAL__HISTORY_TURNS_FOR_REWRITE` turns; both forms are stored
    (ADR-0011: `question_rewritten` on the assistant row).
-6. **Retrieve**: `Retriever.retrieve(rewritten, use_graph, k = K_GRAPH|K, doc_ids)`.
+6. **Retrieve**: `Retriever.retrieve(rewritten, use_graph, k = K_GRAPH|K, doc_ids[, material])` — REQ-002: the raw
+   message is split by `rag_retrieval.split_material` into instruction (rewritten, searched) and material (a pasted
+   log/script: kept verbatim for the prompt, searched only through its identifiers and signature lines).
 7. **Guardrail** ([`requirements/REQ-001`](requirements/REQ-001-robust-question-understanding.md)): `weak_evidence`
    on a **first turn** → the canned sentence is streamed, `guardrail=True`, `llm_called=False`, the model is not
    called. `weak_evidence` on a **follow-up** → the model is called with the history and the weak note instead of
    the context (`weak_follow_up=True`, nothing cited). Otherwise `build_messages(result, raw question, history)`
    with the retrieval module's budget, the model's context limit and the `RAG__RETRIEVAL__HISTORY_TURNS` window.
+   **Assistant profile** (REQ-002, `ChatService.profile == "assistant"`): the verdict never blocks — every turn is
+   answered with `profile="assistant"`, the ecosystem summary of the allowed manuals and the `Evidenzlage` line.
 8. **Stream + persist**: `TurnStream.tokens()` streams the model deltas (`st.write_stream` in the UI, stdout in the
    CLI) and persists the assistant row exactly once — `finish_reason` `stop`, `length` (cut by `max_tokens`: text
    kept, the UI says "Antwort vom Modell gekürzt"), `guardrail`, `aborted` (the consumer stopped: partial text
@@ -53,7 +66,10 @@ sidebar user ─► AuthContext ─► Policy.check_message ─► reserve usage
    what was used ("… (Graph)", "Keine belastbaren Treffer · … · Modell nicht aufgerufen", "Keine neuen Treffer ·
    Antwort aus dem Gesprächsverlauf"). Citations are
    stored enriched (breadcrumb, channels, snippet), diagnostics as JSON (`rag_retrieval.Diagnostics` + rewrite,
-   filter, model, timings, facts, entities, prompt size). The 10th turn marks the conversation `capped`.
+   filter, model, timings, facts, entities, prompt size; REQ-002: `profile`, `analysis`, `off_topic`,
+   `material_chars`, `history_turns_used`). In the assistant profile `TurnStream.tokens()` wraps the stream in
+   `AnalysisSplitter`: the `<einordnung>` block never reaches the UI or the DB, `TurnStream.analysis` holds it,
+   `off_topic` (Bereich: außerhalb) blanks the citations. The 10th turn marks the conversation `capped`.
 
 ## Quick start (dev box)
 
@@ -106,11 +122,15 @@ Large served context (server): `RAG__RETRIEVAL__HISTORY_TURNS=10`. When kNN and 
 (e5 embeddings plus a book filter refused "Wer ist verantwortlich?"): `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS=1` — off-topic
 questions stay refused via the BM25 stop (REQ-001, until phases 2–4 add evidence sources).
 
+Technik-Assistent (REQ-002): `RAG__GUARDRAIL__ENABLED=false` (profile `auto`) or `RAG__PROMPT__PROFILE=assistant`;
+the sidebar caption says "Modus: Technik-Assistent · Guardrail aus". Optional `RAG__LLM__EXTRA_BODY='{"think": false}'`
+for Ollama gemma4 (thinking off). Settings are read once per process: restart `make run` after a `.env` change.
+
 ## CLI
 
 | Command | What it does |
 |---|---|
-| `chat-ask "Frage" [--graph/--no-graph] [--user dev] [--conversation ID] [--doc-id X …] [--json]` | one turn through the real service: streams the answer, then `Quellen:` and the remaining quota; `--conversation` continues (and rewrites); exit 2 on a refusal, 1 on an unknown user |
+| `chat-ask "Frage" [--graph/--no-graph] [--user dev] [--conversation ID] [--doc-id X …] [--material-file m.log] [--json]` | one turn through the real service: streams the answer, then `Quellen:` and the remaining quota; `--conversation` continues (and rewrites); `--material-file` appends a log/command text as material (REQ-002); the summary line shows `Profil`, the Einordnung and `Außerhalb des Aufgabenbereichs`; exit 2 on a refusal, 1 on an unknown user |
 | `chat-db upgrade [rev]` · `chat-db revision -m "…"` · `chat-db current` | Alembic on `CHAT__DB__URL` (migrations ship inside the package); `current` exits 1 when an upgrade is needed |
 | `chat-doctor [--json]` | DB reachable + revision vs head, indexed manuals via `bhb-documents`, LLM `/models` probe, resolved user + limits, prompt budget warning; exit 1 on a failure |
 
@@ -131,11 +151,11 @@ in compose; the unit tests re-run against it with `CHAT_TEST_DB_URL=postgresql+p
 ## Tests
 
 ```bash
-make test               # 54 unit tests, no services: in-memory SQLite with the Alembic schema, FakeRetriever (canned
+make test               # 58 unit tests, no services: in-memory SQLite with the Alembic schema, FakeRetriever (canned
                         # RetrievalResults incl. weak_evidence), FakeLLM (tokens / rewrite / failures), the mock users,
                         # the status line as a pure function (test_ui_labels.py)
-make test-ui            # 5 Streamlit AppTest smokes over app.py with a fake-backed service (answer + Quellen, cap, guardrail,
-                        # user switch, picking a past conversation)
+make test-ui            # 6 Streamlit AppTest smokes over app.py with a fake-backed service (answer + Quellen, cap, guardrail,
+                        # user switch, picking a past conversation, assistant mode line + Einordnung caption)
 make test-integration   # 8 live tests: 3 smoke questions + rewrite + guardrail + read-only filter headless, 2 driving the real app.py
 CHAT_TEST_DB_URL=postgresql+psycopg://chat:chat@127.0.0.1:5432/chat make test     # the same unit tests on Postgres
 ```

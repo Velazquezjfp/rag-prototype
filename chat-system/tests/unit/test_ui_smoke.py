@@ -92,3 +92,18 @@ def test_picking_a_past_conversation_loads_it(ui):
     shown = [m.markdown[0].value for m in at.chat_message]
     assert shown and shown[0] == "Erste Frage zu Vault?" and "Vault ist versiegelt" in shown[1], shown
     assert picker.value == first_id or next(sb for sb in at.sidebar.selectbox if sb.label == "Gespräche").value == first_id
+
+
+def test_assistant_mode_shows_the_mode_line_and_the_einordnung(ui):
+    """REQ-002 R10: the sidebar names the active behaviour; an assistant answer is shown without the block, with the
+    Einordnung caption."""
+    from conftest import FakeLLM
+
+    at, svc = ui(profile="assistant", llm=FakeLLM("<einordnung>\nAufgabe: Skript\nBereich: innerhalb\nSystem: ZSD\nGrundlage: Handbücher\n</einordnung>\n#!/bin/sh\necho ok"))
+    at.run()
+    assert any("Technik-Assistent" in c.value for c in at.sidebar.caption), [c.value for c in at.sidebar.caption]
+    at.chat_input[0].set_value("Mach ein Skript daraus").run()
+    assert not at.exception, at.exception
+    answer = at.chat_message[1].markdown[0].value
+    assert answer.startswith("#!/bin/sh") and "<einordnung>" not in answer
+    assert any(c.value.startswith("Einordnung: Aufgabe: Skript") for c in at.caption), [c.value for c in at.caption]

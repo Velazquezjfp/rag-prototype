@@ -17,8 +17,13 @@ SEARCH_CHANNELS = frozenset({"knn", "bm25", "identifier", "label"})
 
 @dataclass(frozen=True)
 class Verdict:
+    """``weak_evidence`` is what blocks (always False when the guardrail is disabled); ``assessed_weak`` is what the
+    rules say regardless of the switch — the advisory "Evidenzlage" of the assistant profile (REQ-002 R5)."""
+
     weak_evidence: bool
     reason: str | None = None
+    assessed_weak: bool = False
+    assessed_reason: str | None = None
 
 
 def decide(
@@ -31,16 +36,23 @@ def decide(
     top_n: int = 3,
     min_agreeing_channels: int = 2,
 ) -> Verdict:
+    weak, reason = _assess(hits, identifier_hits, label_nodes, bm25_returned, top_n, min_agreeing_channels)
     if not enabled:
-        return Verdict(False)
+        return Verdict(False, None, weak, reason)
+    return Verdict(weak, reason, weak, reason)
+
+
+def _assess(
+    hits: Sequence[ChunkHit], identifier_hits: int, label_nodes: int, bm25_returned: int, top_n: int, min_agreeing: int
+) -> tuple[bool, str | None]:
     if identifier_hits > 0 or label_nodes > 0:
-        return Verdict(False)
+        return False, None
     if not hits:
-        return Verdict(True, "no chunk found by any channel")
+        return True, "no chunk found by any channel"
     if bm25_returned == 0:
-        return Verdict(True, "no lexical overlap with the corpus (BM25 returned nothing)")
+        return True, "no lexical overlap with the corpus (BM25 returned nothing)"
     top = list(hits[:top_n])
-    if not any(len(set(h.channel_names) & SEARCH_CHANNELS) >= min_agreeing_channels for h in top):
+    if not any(len(set(h.channel_names) & SEARCH_CHANNELS) >= min_agreeing for h in top):
         channels = sorted({c for h in top for c in h.channel_names if c in SEARCH_CHANNELS})
-        return Verdict(True, f"top {len(top)} hits were each found by a single channel only ({', '.join(channels)})")
-    return Verdict(False)
+        return True, f"top {len(top)} hits were each found by a single channel only ({', '.join(channels)})"
+    return False, None

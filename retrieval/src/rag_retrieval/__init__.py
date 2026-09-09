@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
+from .analysis import Analysis, AnalysisSplitter, parse_analysis, split_analysis
 from .chat import NO_EVIDENCE_ANSWER, ChatClient, TokenStream, answer, rewrite_question
+from .material import (
+    DEFAULT_INSTRUCTION_DE,
+    Split,
+    compose_query,
+    injection_markers,
+    split_material,
+)
 from .models import (
     ChannelEvidence,
     ChannelStats,
@@ -19,22 +27,35 @@ from .models import (
     RewriteResult,
 )
 from .prompt import (
+    ASSISTANT_SYSTEM_PROMPT_DE,
+    INJECTION_NOTE_DE,
+    MATERIAL_HEADER_DE,
+    OUT_OF_SCOPE_ANSWER_DE,
     OVERVIEW_INSTRUCTION_DE,
     SYSTEM_PROMPT_DE,
     WEAK_FOLLOW_UP_NOTE_DE,
     build_messages,
+    ecosystem_summary,
     estimate_tokens,
+    evidence_line,
     render_context,
     scope_line,
 )
 from .retriever import Retriever, default_retriever, retrieve
-from .settings import Settings, get_settings
+from .settings import PromptProfile, Settings, get_settings, resolve_profile
 
 __all__ = [
+    "ASSISTANT_SYSTEM_PROMPT_DE",
+    "DEFAULT_INSTRUCTION_DE",
+    "INJECTION_NOTE_DE",
+    "MATERIAL_HEADER_DE",
     "NO_EVIDENCE_ANSWER",
+    "OUT_OF_SCOPE_ANSWER_DE",
     "OVERVIEW_INSTRUCTION_DE",
     "SYSTEM_PROMPT_DE",
     "WEAK_FOLLOW_UP_NOTE_DE",
+    "Analysis",
+    "AnalysisSplitter",
     "ChannelEvidence",
     "ChannelStats",
     "ChatClient",
@@ -46,19 +67,29 @@ __all__ = [
     "EntityOccurrence",
     "GraphFact",
     "Message",
+    "PromptProfile",
     "RenderedContext",
     "RetrievalResult",
     "Retriever",
     "RewriteResult",
     "Settings",
+    "Split",
     "TokenStream",
     "answer",
     "build_messages",
+    "compose_query",
     "default_retriever",
+    "ecosystem_summary",
     "estimate_tokens",
+    "evidence_line",
     "get_settings",
+    "injection_markers",
+    "parse_analysis",
     "render_context",
+    "resolve_profile",
     "retrieve",
     "rewrite_question",
     "scope_line",
+    "split_analysis",
+    "split_material",
 ]

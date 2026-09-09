@@ -136,3 +136,37 @@ Verification after the update: `make lint` clean, `make test` **54 passed**, `ma
 checks as above. Server note: `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS=1` there (e5 embeddings plus a book filter made
 the two-channel agreement rule refuse "Wer ist verantwortlich?"); settings are read once per process, so a `.env`
 change needs a full restart of `make run`, not a reinstall.
+
+## Update 2026-09-09 — REQ-002 technical-assistant profile
+
+Recorded in [`requirements/REQ-002-technical-assistant-profile.md`](requirements/REQ-002-technical-assistant-profile.md)
+(chat side) and its retrieval counterpart. What changed in this module:
+
+- **Profile** (`ChatService.profile`, resolved from the retrieval settings: `RAG__PROMPT__PROFILE`, `auto` = assistant
+  iff `RAG__GUARDRAIL__ENABLED=false`; `strict` without rag settings). In the assistant profile `ask()` step 6 always
+  builds the prompt (`profile="assistant"`, `ecosystem=retriever.ecosystem_summary(doc_ids)`, `material=`), the weak
+  verdict is only the `Evidenzlage`; `weak_follow_up` is a strict-profile notion.
+- **Raw question and material** (`ask()`): the message is no longer whitespace-collapsed — `raw.strip()` is stored,
+  `split_material(raw)` yields the instruction (rewritten from the second turn on, unless it is the default
+  "Analysiere das folgende Material.") and the material (passed to `retrieve(material=…)` only when present, so the
+  existing exact-call tests hold). The user bubble renders the material in a fenced block (`format_user_message`).
+- **Stream** (`TurnStream.tokens()`): `AnalysisSplitter` wraps the model stream in the assistant profile; the
+  persisted `Message.content` is the answer without the `<einordnung>` block; `TurnStream.analysis`, `off_topic`,
+  `profile`; `citations == []` when the model judged the request outside its scope; diagnostics gain `profile`,
+  `analysis` (task, in_scope, systems, basis, fields, raw), `off_topic`, `material_chars`, `history_turns_used`.
+- **UI**: sidebar caption "Modus: Technik-Assistent · Guardrail aus" / "Modus: Handbuch-Antworten · Guardrail an"
+  (`sidebar.mode_caption`); status line "Technik-Assistent · n Quellen · n Fakten · n Entitäten · Evidenz stark|schwach
+  (Graph)"; captions "Einordnung: Aufgabe … · Bereich … · System … · Grundlage …" (`analysis_caption`), "Außerhalb des
+  Aufgabenbereichs …", injection note; Diagnostik shows Profil, the assessed evidence when the guardrail is off, material
+  size, history turns used and the raw block; the chat input invites material ("Shift+Enter für einen Zeilenumbruch").
+- **CLI**: `chat-ask --material-file`; the summary line carries `Profil`, `Einordnung: <task> / <scope> / <systems>` and
+  `Außerhalb des Aufgabenbereichs`.
+
+Live on the dev box (gemini-dev, `RAG__GUARDRAIL__ENABLED=false`): `chat-ask "Wie entsiegle ich den Vault?" --json`
+→ `profile assistant`, analysis `Verfahren / innerhalb / Zentrale Sicherheitsdienste (Vault), CaaS-Plattform /
+Handbücher`, 25 citations, no block in the answer; follow-up "Mach daraus ein Skript, das alle 20 Minuten den Zustand
+prüft und über den dokumentierten Alarmweg meldet" → a bash script around `oc -n vault-system exec vault-0 -- vault
+status`, Sev-1 mail to `zsd@bavd.bund.de` and the Rufbereitschaft `0800 1180 100` from the manuals, cron and an
+OpenShift CronJob both labelled "(allgemeines Fachwissen, nicht aus den Handbüchern)", `<SA_MIT_EXEC_RECHTEN>` as a
+placeholder. Known, unchanged: the rewrite call is still cut at 200 tokens by a thinking model (the rewritten question
+was usable). Verification: `make lint` clean, `make test` **58 passed**, `make test-ui` **6 passed**.

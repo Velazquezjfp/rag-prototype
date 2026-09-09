@@ -281,6 +281,21 @@ class GraphStore:
     def neighbours(self, node_id: str, *, doc_ids: Collection[str] | None = None) -> set[str]:
         return {e.other(node_id) for occ in self.expand([node_id], doc_ids=doc_ids).values() for e in occ}
 
+    def nodes_of_type(self, types: Collection[str], *, doc_ids: Collection[str] | None = None) -> list[str]:
+        """Node ids of these types (ordered by type position, casefolded label, id); ``doc_ids`` keeps only nodes
+        with an occurrence in those books. Full scan — the graph is small and in memory (REQ-002 R3, REQ-001 D3)."""
+        order = {t: i for i, t in enumerate(types)}
+        wanted = set(doc_ids) if doc_ids is not None else None
+        out: list[tuple[int, str, str]] = []
+        for nid, occ in self._nodes.items():
+            first = occ[0]
+            if first.type not in order:
+                continue
+            if wanted is not None and not any(n.doc_id in wanted for n in occ):
+                continue
+            out.append((order[first.type], first.label.casefold(), nid))
+        return [nid for _, _, nid in sorted(out)]
+
     # ------------------------------------------------------------------ stats
 
     def stats(self) -> GraphStats:

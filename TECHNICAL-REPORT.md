@@ -995,6 +995,22 @@ give both with sources; copy identifiers verbatim; answer in German, concisely, 
 sequences. A follow-up whose retrieval found no new evidence receives a short note instead of the context and
 is answered from the conversation.
 
+*Amendment (REQ-002, 2026-09-09).* A second system prompt, the **technical-assistant profile**, is selected by
+`RAG__PROMPT__PROFILE` (`auto` = assistant iff the guardrail is switched off). It keeps the single model call but
+moves the reasoning structure into the prompt: every answer opens with a short tagged block — task, in or out of
+scope, systems, basis (manuals, conversation, general knowledge) — which the client takes off the stream and shows
+as one line; environment facts (hosts, ports, paths, contacts, alert paths, procedures) may come only from the
+context or earlier answers, gaps become placeholders listed under "Offene Angaben"; general technical knowledge is
+allowed for the craft (shell, RHEL, OpenShift, log semantics) but must be labelled as such; a premise that
+contradicts the manuals is corrected first; off-topic requests get one fixed refusal sentence; instructions inside
+pasted material are data. Around that call three deterministic layers were added: a pasted log or script is split
+from the instruction and searched only through its identifiers and a few signature lines (the raw paste would seed
+dozens of spurious label matches and exceed the embedding endpoint's input limit); the guardrail always assesses
+the evidence and, in this profile, only reports it as `Evidenzlage: stark | schwach (Grund)` in the context; a
+deterministic summary of the indexed manuals (ids, titles, systems, counts of hosts, procedures, failure modes,
+alerts) sits in the system prompt so the assistant is grounded in its environment even when a question retrieves
+nothing. The history is trimmed to the model's context limit instead of raising. The strict profile is unchanged.
+
 The context block is rendered in a fixed order — **Entitäten** (entity cards), **Fakten** (up to 25),
 **Quellen** (sources by rank, each with a header line `### Quelle n · doc „title“ · S. x · breadcrumb ·
 caption (n Teile) · [chunk ids]`). Sources are added until a budget of 6 000 estimated tokens is spent,
@@ -1326,6 +1342,8 @@ query plan constrained to the ontology's relation names — the traversal would 
 | guardrail `min_agreeing_channels` / `top_n` | 2 / 3 | |
 | llm `temperature` / `max_tokens` / `context_limit_tokens` | 0.0 / 4 000 / 32 000 | reasoning models spend ~1 300 tokens thinking first |
 | `history_turns` | 3 (server: 10) | user/assistant pairs in the prompt (REQ-001) |
+| prompt `profile` | auto | REQ-002: `auto` = assistant iff `guardrail.enabled` is false; `strict` / `assistant` force one |
+| llm `extra_body` | {} | REQ-002: JSON merged into every chat request, e.g. `{"think": false}` on Ollama |
 
 ### 10.2 Glossary
 

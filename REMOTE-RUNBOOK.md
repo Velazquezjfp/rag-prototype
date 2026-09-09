@@ -252,9 +252,12 @@ cp .env.example .env
 | `USERS__ADAPTER` / `USERS__DEV_USER` | `env` / `dev` | `header` behind oauth2-proxy |
 | `RAG__RETRIEVAL__HISTORY_TURNS` | `10` (served context is large) | |
 | `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS` | `1` (e5 + book filter: the two-channel rule refuses legitimate general questions; off-topic is still refused via the BM25 stop) | back to 2 once REQ-001 phases 2–4 are deployed |
+| `RAG__GUARDRAIL__ENABLED` | `false` to run the **Technik-Assistent** (REQ-002: scripts, log analysis, command adaptation; the verdict only advises); leave unset/`true` for the strict manual answers | the sidebar caption shows the active mode |
+| `RAG__PROMPT__PROFILE` | leave `auto` (assistant iff the guardrail is off); `strict`/`assistant` force one | |
+| `RAG__LLM__EXTRA_BODY` | `{"think": false}` for gemma4 on Ollama (thinking off: the 200-token rewrite call stops truncating); vLLM Qwen3: `{"chat_template_kwargs": {"enable_thinking": false}}` | verify with one `chat-ask` that the endpoint accepts the key |
 
 ```bash
-make test && make test-ui                 # 54 unit + 5 AppTest, offline
+make test && make test-ui                 # 58 unit + 6 AppTest, offline
 make doctor                               # db, opensearch (2 manuals + embedding model), llm probe, resolved user, prompt budget
 make db-init                              # alembic upgrade head -> data/chat.db
 make ask Q="Was war bei CAASUP-0338?" ARGS="--no-graph --user otto.ops"
@@ -262,6 +265,21 @@ make ask Q="Was passiert, wenn Vault versiegelt ist?" ARGS="--user otto.ops"
 make ask Q="Was war bei CAASUP-0338?" ARGS="--user rita.read"     # ZSD-only user: CaaS never reaches retrieval -> exit 2, no CaaS citation
 make smoke                                # 6 questions of scripts/smoke_questions.txt -> out/smoke/<n>.txt
 ```
+
+Technik-Assistent smoke (REQ-002; `RAG__GUARDRAIL__ENABLED=false` in `.env`, restart `make run` / new shell for `chat-ask`):
+
+```bash
+make ask Q="Was bedeutet Exit-Code 137 bei einem Container?" ARGS="--no-graph"   # answer labelled Fachwissen + the documented OOMKilled case; summary: Profil assistant · Einordnung: Erklärung / innerhalb
+printf '%s\n' "2026-09-08T10:12:05Z ERROR javax.net.ssl.SSLHandshakeException: PKIX path building failed" "2026-09-08T10:12:06Z WARN vault-agent: server is sealed (vault-p01), see ZSDSUP-0247" > /tmp/m.log
+make ask Q="Was könnte die Ursache sein?" ARGS="--material-file /tmp/m.log"        # identifiers of the log drive the search; Störungsbild/Incident cited
+make ask Q="Wie backe ich einen Apfelkuchen?" ARGS="--no-graph"                     # "Dabei kann ich nicht helfen: …" · Außerhalb des Aufgabenbereichs
+CONV=$(.venv/bin/chat-ask "Wie entsiegle ich den Vault?" --json | python3 -c "import json,sys; print(json.load(sys.stdin)['conversation_id'])")
+make ask Q="Mach daraus ein Skript, das alle 20 Minuten den Zustand prüft und über den dokumentierten Alarmweg meldet" ARGS="--conversation $CONV"
+```
+
+In the UI: the sidebar says "Modus: Technik-Assistent · Guardrail aus"; paste a multi-line log into the input
+(Shift+Enter) — the user bubble shows it in a fenced block, the answer carries an "Einordnung:" caption; with
+"Diagnostik anzeigen" the Profil, the assessed evidence and the raw block are visible.
 
 Optional live suite: `CHAT_INTEGRATION=1 make test-integration` (8 tests, temporary SQLite; needs the tunnels).
 

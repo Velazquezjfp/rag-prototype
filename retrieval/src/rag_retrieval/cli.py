@@ -74,11 +74,16 @@ def _short_via(via: str, limit: int = 3) -> str:
     return ", ".join(parts[:limit]) + (f", … (+{len(parts) - limit})" if len(parts) > limit else "")
 
 
-def _print_result(result, *, show_context: bool, budget: int | None) -> None:
+def _print_result(result, *, show_context: bool, budget: int | None, profile: str = "strict") -> None:
     d = result.diagnostics
     typer.echo(f"Frage: {result.question}")
     if d.rewritten_question and d.rewritten_question != result.question:
         typer.echo(f"Umformuliert: {d.rewritten_question}")
+    typer.echo(f"Profil: {profile}" + (f" · Material: {d.material_chars} Zeichen" + (" (gekürzt)" if d.material_truncated else "") if d.material_chars else ""))
+    if d.material_chars and d.question != result.question:
+        typer.echo(f"Suchanfrage: {d.question}")
+    if d.injection_suspected:
+        typer.echo(f"Hinweis: Formulierungen wie Anweisungen in der Eingabe: {d.injection_suspected}")
     typer.echo(
         f"Modus: {result.mode} · Identifier: {d.identifiers or '-'} · Labels: {d.resolved_labels or '-'}"
         f" · Startknoten: {len(d.start_nodes)}"
@@ -91,6 +96,8 @@ def _print_result(result, *, show_context: bool, budget: int | None) -> None:
     typer.echo(f"Kanäle: {ch}")
     if result.weak_evidence:
         typer.echo(f"Guardrail: SCHWACHE EVIDENZ – {result.weak_evidence_reason}")
+    elif not d.guardrail_enabled:
+        typer.echo("Guardrail: aus – Evidenz bewertet: " + (f"schwach ({d.assessed_reason})" if d.assessed_weak else "stark"))
     else:
         typer.echo("Guardrail: ok")
     for w in d.warnings:
@@ -149,13 +156,26 @@ def ask(
     show_context: bool = typer.Option(False, "--show-context", help="print the rendered context block"),
     budget: int | None = typer.Option(None, "--budget", help="context token budget (RAG__RETRIEVAL__CONTEXT_TOKEN_BUDGET)"),
     history_file: Path | None = typer.Option(None, "--history-file", help="JSON list of {role, content}; enables question rewriting"),
+    profile: str | None = typer.Option(None, "--profile", help="strict | assistant (default: RAG__PROMPT__PROFILE, auto = assistant iff the guardrail is off)"),
+    material_file: Path | None = typer.Option(None, "--material-file", help="log/command/script text attached as material (REQ-002); a pasted question is split automatically"),
 ) -> None:
     """Retrieve for one question; with --answer also generate the answer (exit 2 when the guardrail refuses)."""
+    from .analysis import AnalysisSplitter, split_analysis
     from .chat import answer as answer_fn
     from .chat import rewrite_question
+    from .material import split_material
+    from .settings import resolve_profile
 
     r = _retriever()
     s = r.settings
+    effective_profile = profile or resolve_profile(s)
+    if effective_profile not in ("strict", "assistant"):
+        raise typer.BadParameter("--profile must be strict or assistant")
+    strict = effective_profile == "strict"
+    material: str | None = material_file.read_text(encoding="utf-8") if material_file else None
+    if material is None:
+        split = split_material(question)
+        question, material = split.instruction, split.material
     history = _load_history(history_file)
     rewritten = None
     llm = None
@@ -165,23 +185,23 @@ def ask(
         rewritten = rw.rewritten
         if rw.error:
             typer.echo(f"warning: rewrite failed ({rw.error}); using the original question", err=True)
-    result = r.retrieve(rewritten or question, use_graph=graph, k=k, doc_ids=doc or None)
+    result = r.retrieve(rewritten or question, use_graph=graph, k=k, doc_ids=doc or None, material=material)
     if rewritten and rewritten != question:
         result.diagnostics.rewritten_question = rewritten
         result.question = question
     if json_out:
         _out(result.model_dump())
     else:
-        _print_result(result, show_context=show_context, budget=budget)
+        _print_result(result, show_context=show_context, budget=budget, profile=effective_profile)
     if not answer_:
         return
-    if result.weak_evidence and not force and not history:
+    if strict and result.weak_evidence and not force and not history:
         typer.echo("")
         typer.echo(f"Antwort: {answer_fn(result, question, llm, history)}")  # type: ignore[arg-type]
         raise typer.Exit(code=2)
     llm = llm or _llm(s)
     typer.echo("")
-    if result.weak_evidence and not force:
+    if strict and result.weak_evidence and not force:
         typer.echo("Hinweis: schwache Evidenz – Antwort aus dem Gesprächsverlauf (keine neuen Quellen)")
     typer.echo(f"Antwort ({model or s.llm.model}):")
     try:
@@ -198,15 +218,26 @@ def ask(
             context_limit_tokens=s.llm.context_limit_tokens,
             max_history_turns=s.retrieval.history_turns,
             doc_ids=doc or None,
+            profile=effective_profile,
+            material=material,
+            ecosystem=None if strict else r.ecosystem_summary(doc or None),
         )
+        analysis = None
         if stream:
+            if not strict:
+                out = AnalysisSplitter(out)  # type: ignore[arg-type]
             for tok in out:  # type: ignore[union-attr]
                 typer.echo(tok, nl=False)
             typer.echo("")
+            analysis = getattr(out, "analysis", None)
             if getattr(out, "finish_reason", None) == "length":
                 typer.echo("[Antwort vom Modell gekürzt (max_tokens) – RAG__LLM__MAX_TOKENS erhöhen]", err=True)
         else:
+            if not strict:
+                analysis, out = split_analysis(out)  # type: ignore[arg-type]
             typer.echo(out)
+        if analysis is not None:
+            typer.echo(f"[Einordnung: {analysis.summary_de()}]")
     except Exception as exc:  # noqa: BLE001
         _err(str(exc))
         raise typer.Exit(code=1) from exc

@@ -183,6 +183,13 @@ class Diagnostics(BaseModel):
     indexed_embedding_models: list[str] = Field(default_factory=list)
     indexed_text_prefix: str | None = None
     warnings: list[str] = Field(default_factory=list)
+    # REQ-002: the guardrail's assessment even when it does not block (R5), the pasted material (R4), injection cues (R7)
+    guardrail_enabled: bool = True
+    assessed_weak: bool = False
+    assessed_reason: str | None = None
+    material_chars: int = 0
+    material_truncated: bool = False
+    injection_suspected: list[str] = Field(default_factory=list)
 
 
 class RetrievalResult(BaseModel):

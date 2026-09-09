@@ -34,6 +34,7 @@ llm:                                   # the answering model; also used for ques
   timeout_s: 120
   max_attempts: 2
   context_limit_tokens: 32000          # build_messages refuses prompts above this (4096 for small Ollama models)
+  extra_body: {}                       # merged into every chat request, e.g. {"think": false} (Ollama) — REQ-002 R9
 
 retrieval:
   k_per_channel: 20                    # hits requested from each of knn / bm25 / identifier / label
@@ -56,9 +57,12 @@ retrieval:
   history_turns: 3                     # user/assistant pairs the prompt carries (REQ-001 R7); large-context models: 10
 
 guardrail:                             # ADR-0011: "Dazu steht nichts in den Handbüchern." without calling the model
-  enabled: true
+  enabled: true                        # false = the verdict is only advisory (diagnostics + "Evidenzlage" line, REQ-002 R5)
   min_agreeing_channels: 2             # a top hit counts as evidence if >= this many channels found it
   top_n: 3
+
+prompt:                                # REQ-002 R1: which system prompt answers
+  profile: auto                        # auto = assistant when guardrail.enabled is false, else strict; or strict | assistant
 
 ontology:
   path: ../user-manual-books/handbuch_daten/Ontologie/ontology.yaml   # identifier regexes + relation label_de

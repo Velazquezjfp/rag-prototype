@@ -110,3 +110,35 @@ def test_ask_weak_follow_up_with_history_calls_the_model(wired, tmp_path):
     assert "SCHWACHE EVIDENZ" in res.output and "Antwort aus dem Gesprächsverlauf" in res.output
     assert len(llm.calls) == 2  # rewrite + answer (no refusal)
     assert any("keine neuen belastbaren Stellen" in m["content"] for m in llm.calls[1])
+
+
+def test_ask_assistant_profile_prints_einordnung_and_never_refuses(wired):
+    """REQ-002 on the CLI: --profile assistant answers a weak question, strips the block and prints the Einordnung."""
+    _, llm = wired
+    llm.reply = "<einordnung>\nAufgabe: Erklärung\nBereich: innerhalb\nSystem: unklar\nGrundlage: Fachwissen\n</einordnung>\nExit-Code 137 bedeutet OOMKilled."
+    res = runner.invoke(cli.app, ["ask", "Wie backe ich einen Apfelkuchen?", "--no-graph", "--answer", "--profile", "assistant"])
+    assert res.exit_code == 0, res.output
+    assert "Profil: assistant" in res.output and "SCHWACHE EVIDENZ" in res.output  # the verdict is reported, not enforced
+    assert "<einordnung>" not in res.output and "Exit-Code 137 bedeutet OOMKilled." in res.output
+    assert "[Einordnung: Aufgabe: Erklärung · Bereich: innerhalb · Grundlage: Fachwissen]" in res.output
+    assert len(llm.calls) == 1 and "Evidenzlage: schwach" in llm.calls[0][-1]["content"] and "Handbücher im System:" in llm.calls[0][0]["content"]
+    streamed = runner.invoke(cli.app, ["ask", "Was bedeutet Exit-Code 137?", "--no-graph", "--answer", "--stream", "--profile", "assistant"])
+    assert streamed.exit_code == 0 and "<einordnung>" not in streamed.output and "[Einordnung: " in streamed.output
+    bad = runner.invoke(cli.app, ["ask", "x", "--profile", "loose"])
+    assert bad.exit_code != 0
+
+
+def test_ask_splits_pasted_material_and_reads_a_material_file(wired, tmp_path):
+    """REQ-002 R4: a pasted log becomes material; its identifiers drive the exact channels; --material-file too."""
+    r, _ = wired
+    log = "Was könnte die Ursache sein?\n" + "\n".join(f"2026-09-08T10:{i:02d}:00Z ERROR vault sealed, see ZSDSUP-0247" for i in range(4))
+    res = runner.invoke(cli.app, ["ask", log, "--no-graph"])
+    assert res.exit_code == 0, res.output
+    assert "Frage: Was könnte die Ursache sein?" in res.output and "Material: " in res.output and "Zeichen" in res.output
+    assert "Suchanfrage: Was könnte die Ursache sein? ZSDSUP-0247" in res.output and "Identifier: ['ZSDSUP-0247']" in res.output
+    f = tmp_path / "m.log"
+    f.write_text("ERROR vault sealed, see ZSDSUP-0247\n", encoding="utf-8")
+    res2 = runner.invoke(cli.app, ["ask", "Ursache?", "--no-graph", "--material-file", str(f), "--json"])
+    assert res2.exit_code == 0, res2.output
+    data = json.loads(res2.output)
+    assert data["question"] == "Ursache?" and data["diagnostics"]["identifiers"] == ["ZSDSUP-0247"] and data["diagnostics"]["material_chars"] == 36

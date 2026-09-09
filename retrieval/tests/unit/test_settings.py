@@ -66,3 +66,19 @@ def test_redact_url():
     assert settings_mod.redact_url("http://x/v1", "secret") == {"base_url": "http://x/v1", "api_key": "***"}
     assert settings_mod.redact_url("http://x/v1", None)["api_key"] == "(none)"
     assert "RAG__" not in os.environ.get("NOPE", "")
+
+
+def test_prompt_profile_follows_the_guardrail_switch_unless_explicit(monkeypatch):
+    """REQ-002 R1: auto = assistant iff the guardrail is disabled; strict/assistant win over the switch."""
+    from rag_retrieval.settings import resolve_profile
+
+    assert Settings(_env_file=None).prompt.profile == "auto"
+    assert resolve_profile(Settings(_env_file=None)) == "strict"
+    assert resolve_profile(Settings(_env_file=None, guardrail={"enabled": False})) == "assistant"
+    assert resolve_profile(Settings(_env_file=None, guardrail={"enabled": False}, prompt={"profile": "strict"})) == "strict"
+    assert resolve_profile(Settings(_env_file=None, prompt={"profile": "assistant"})) == "assistant"
+    monkeypatch.setenv("RAG__GUARDRAIL__ENABLED", "false")
+    monkeypatch.setenv("RAG__LLM__EXTRA_BODY", '{"think": false}')
+    s = Settings(_env_file=None)
+    assert resolve_profile(s) == "assistant" and s.llm.extra_body == {"think": False}
+    assert resolve_profile(object()) == "strict"  # duck-typed: no prompt/guardrail attributes -> strict

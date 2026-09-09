@@ -165,3 +165,71 @@ def test_scope_line_names_the_filter_or_the_single_manual():
     msgs = build_messages(res, "Wer ist verantwortlich?", doc_ids=["BHB-PLT-0007"])
     assert msgs[-1]["content"].startswith("Kontext:\nHandbuch-Filter: BHB-PLT-0007")
     assert "Handbuch-Filter" in SYSTEM_PROMPT_DE and "nicht nach dem Handbuch" in SYSTEM_PROMPT_DE
+
+
+def test_ecosystem_summary_lists_manuals_systems_and_counts(graph_small):
+    """REQ-002 R3: the assistant is grounded in the indexed manuals even when a question retrieves nothing."""
+    from rag_retrieval.prompt import ecosystem_summary
+
+    text = ecosystem_summary(graph_small)
+    assert text.startswith("- BHB-PLT-0007") and "Systeme: " in text and "Komponenten: Keycloak" in text
+    assert "Verfahren 3" in text and "Störungsbilder 2" in text and "Alarme 1" in text
+    assert "Zentrale Sicherheitsdienste" in text and estimate_tokens(text) <= 400
+    assert ecosystem_summary(graph_small, ["BHB-PLT-0007"]) == text and ecosystem_summary(graph_small, ["BHB-PLT-0001"]) == ""
+    # names are capped, the tail says how many more
+    assert "(+" in ecosystem_summary(graph_small, max_names=2) and "weitere)" in ecosystem_summary(graph_small, max_names=2)
+    # a tiny budget keeps the first manual and lists the rest by id
+    assert ecosystem_summary(graph_small, max_tokens=1).startswith("- BHB-PLT-0007")
+
+
+def test_assistant_profile_prompt_layout():
+    """REQ-002 R2/R3/R4/R5/R7: assistant system prompt + ecosystem; Evidenzlage first, material fenced, injection note,
+    the question last; the strict profile is byte-identical to before."""
+    from rag_retrieval.prompt import (
+        ASSISTANT_SYSTEM_PROMPT_DE,
+        INJECTION_NOTE_DE,
+        MATERIAL_HEADER_DE,
+        OUT_OF_SCOPE_ANSWER_DE,
+        evidence_line,
+    )
+
+    g = _group([_hit("c1", [4], "Text.")])
+    res = _result([g])
+    res.diagnostics.assessed_weak = True
+    res.diagnostics.assessed_reason = "r"
+    res.diagnostics.injection_suspected = ["du bist jetzt"]
+    msgs = build_messages(res, "Mach ein Skript", profile="assistant", material="$ oc get nodes\n$ vault status", ecosystem="- BHB-PLT-0007 „ZSD“: Systeme: Vault")
+    system = msgs[0]["content"]
+    assert system.startswith(ASSISTANT_SYSTEM_PROMPT_DE.rstrip()) and system.endswith("Handbücher im System:\n- BHB-PLT-0007 „ZSD“: Systeme: Vault")
+    user = msgs[-1]["content"]
+    assert user.startswith("Kontext:\nEvidenzlage: schwach (r)\nHandbuch im Kontext: BHB-PLT-0007 „ZSD“")
+    assert f"\n\n{MATERIAL_HEADER_DE}\n```\n$ oc get nodes\n$ vault status\n```" in user
+    assert user.index(MATERIAL_HEADER_DE) < user.index(INJECTION_NOTE_DE) < user.index("\n\nFrage: Mach ein Skript")
+    assert user.endswith("\n\nFrage: Mach ein Skript") and evidence_line(res) == "Evidenzlage: schwach (r)"
+    plain = build_messages(_result([g]), "Frage?", profile="assistant")[-1]["content"]
+    assert plain.startswith("Kontext:\nEvidenzlage: stark\n") and "Material" not in plain and INJECTION_NOTE_DE not in plain
+    # weak_note is a strict-profile mechanism: the assistant keeps the context and sees the Evidenzlage instead
+    weak = build_messages(_result([g], weak=True), "q", [Message(role="user", content="h")], weak_note=True, profile="assistant")[-1]["content"]
+    assert "## Quellen" in weak and WEAK_FOLLOW_UP_NOTE_DE not in weak and weak.startswith("Kontext:\nEvidenzlage: schwach\n")
+    # strict: unchanged prompt, no evidence line, ecosystem ignored; material still reaches the strict prompt
+    strict = build_messages(_result([g]), "Frage?", ecosystem="x")
+    assert strict[0]["content"] == SYSTEM_PROMPT_DE and "Evidenzlage" not in strict[-1]["content"]
+    with_material = build_messages(_result([g]), "Was ist das?", material="x ```y``` z")[-1]["content"]
+    assert f"{MATERIAL_HEADER_DE}\n````\nx ```y``` z\n````\n\nFrage: Was ist das?" in with_material
+    assert ASSISTANT_SYSTEM_PROMPT_DE.count(OUT_OF_SCOPE_ANSWER_DE) == 1 and "<einordnung>" in ASSISTANT_SYSTEM_PROMPT_DE
+    assert "(Regel 1)" not in OVERVIEW_INSTRUCTION_DE and "allgemeines Fachwissen" in ASSISTANT_SYSTEM_PROMPT_DE
+
+
+def test_fit_history_drops_the_oldest_pairs_before_failing():
+    """REQ-002 R8: a long conversation shrinks to the context limit instead of raising; system + context must fit."""
+    g = _group([_hit("c1", [4], "Text.")])
+    res = _result([g])
+    history = [Message(role="user" if i % 2 == 0 else "assistant", content=str(i) * 260) for i in range(6)]  # ~100 tokens each
+    base = sum(estimate_tokens(m["content"]) for m in build_messages(res, "Frage?"))
+    msgs = build_messages(res, "Frage?", history, max_history_turns=3, context_limit_tokens=base + 250)
+    assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"] and msgs[1]["content"].startswith("4")
+    assert len(build_messages(res, "Frage?", history, max_history_turns=3, context_limit_tokens=base + 700)) == 8
+    with pytest.raises(ValueError, match="context limit"):
+        build_messages(res, "Frage?", history, context_limit_tokens=base - 1)
+    with pytest.raises(ValueError, match="context limit"):
+        build_messages(res, "Frage?", history, max_history_turns=3, context_limit_tokens=base + 250, fit_history=False)
