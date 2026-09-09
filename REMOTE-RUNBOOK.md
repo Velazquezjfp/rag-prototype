@@ -250,6 +250,8 @@ cp .env.example .env
 | `RAG__*` | identical to `retrieval/.env` (copy the block) | |
 | `RAG__ONTOLOGY__PATH` | absolute host path (the `/ontology/...` value is for the container) | |
 | `USERS__ADAPTER` / `USERS__DEV_USER` | `env` / `dev` | `header` behind oauth2-proxy |
+| `RAG__RETRIEVAL__HISTORY_TURNS` | `10` (served context is large) | |
+| `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS` | `1` (e5 + book filter: the two-channel rule refuses legitimate general questions; off-topic is still refused via the BM25 stop) | back to 2 once REQ-001 phases 2–4 are deployed |
 
 ```bash
 make test && make test-ui                 # 49 unit + 4 AppTest, offline

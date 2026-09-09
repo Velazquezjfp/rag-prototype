@@ -71,7 +71,7 @@ questions subject nodes.
 | `RAG__RETRIEVAL__FUZZY_MIN_RATIO` / `FUZZY_MIN_CHARS` / `GLOSSARY_EXPANSION` | 0.86 / 5 / true | 2 |
 | `RAG__RETRIEVAL__OVERVIEW_ENABLED` / `OVERVIEW_MAX_ENTITIES` / `OVERVIEW_MAX_FACTS` / `OVERVIEW_MAX_CHUNKS` / `OVERVIEW_MIN_SOURCES` | true / 30 / 30 / 10 / 4 | 3–4 |
 | `config.yaml` `vocabulary.aspects`, `vocabulary.ignore` | seed list in the plan | 3 |
-| `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS` | 2 (unchanged) | — |
+| `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS` | 2; **server: 1** since 2026-09-09 — with e5 embeddings and a book filter the top-3 fused chunks are rarely found by two channels ("Wer ist verantwortlich?" on CaaS was refused); off-topic stays refused via the BM25 stop. Phases 2–4 replace the rule with evidence sources | 1 (setting) |
 
 ## 6. Affected files and tests (phase 1)
 
