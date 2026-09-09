@@ -13,8 +13,14 @@ Verified 2026-09-04 against the local stack (OpenSearch 3.8.0 with CaaS `BHB-PLT
 indexed, bge-m3 embeddings and `gemini-dev` through the LiteLLM proxy): the 8 ground-truth questions of
 [`REPORT.md`](REPORT.md) land on the expected pages in fast and slow mode, the deliberate non-couplings of the test
 corpus come out as explicit negations ("Vault hängt NICHT von PKI/Keycloak ab", "Vault versiegelt → VPP:
-severity keine"), the off-topic question is refused without calling the model; 103 unit + 13 integration tests
+severity keine"), the off-topic question is refused without calling the model; 112 unit + 13 integration tests
 green; a slow-mode retrieval takes ~0.3–0.5 s of which ~0.2 s is the query embedding.
+
+Updated 2026-09-09 ([`requirements/REQ-001`](requirements/REQ-001-robust-question-understanding.md), phase 1): graded
+prompt rule 3 with a clarifying question that names the systems of the context, reuse of earlier answers, weak
+follow-ups answered from the conversation, configurable history window, `finish_reason=length` surfaced from the
+stream, and a `Handbuch-Filter` scope line so the model does not ask which manual when one is selected. Live-checked
+on the dev box; the guardrail rule itself is unchanged (relaxation = REQ-001 phases 2–4).
 
 ## How a question is answered
 
@@ -60,7 +66,8 @@ question ──► analyze ──► embed ──► msearch (4 channels) ──
    negations; earlier answers of the conversation may be reused and transformed; a partial match or a question
    without a concrete system gets "what the manuals contain" plus one clarifying question that names the systems
    of the context as options; exactly "Dazu steht nichts in den Handbüchern." only when neither context nor
-   earlier answers hold anything — REQ-001 R5) + context block `## Entitäten` → `## Fakten` → `## Quellen`,
+   earlier answers hold anything — REQ-001 R5; an active manual filter or a single-manual context is named in a
+   leading `Handbuch-Filter` line so the model does not ask which manual) + context block `## Entitäten` → `## Fakten` → `## Quellen`,
    budgeted with the stored `token_count` of every chunk; the last `history_turns` user/assistant pairs (default
    3, `RAG__RETRIEVAL__HISTORY_TURNS`) precede it. `OVERVIEW_INSTRUCTION_DE` is appended for overview results
    (mode emitted from REQ-001 phase 4 on); `WEAK_FOLLOW_UP_NOTE_DE` replaces the context on a weak follow-up.
@@ -146,7 +153,7 @@ Global options: `--url`, `--prefix`, `--ontology`, `--log-level` (set the corres
 ## Tests
 
 ```bash
-make test                                   # 111 unit tests, no services: fake OpenSearch client (cosine kNN, token-overlap
+make test                                   # 112 unit tests, no services: fake OpenSearch client (cosine kNN, token-overlap
                                             # BM25 with German stopwords, term/terms/bool, msearch, mget) over the indexer's
                                             # own transform of the small ZSD fixture; httpx.MockTransport for embed/chat
 RAG_INTEGRATION=1 make test-integration     # 13 live tests: check(), 1024-dim embedding, the ground-truth table of REPORT.md

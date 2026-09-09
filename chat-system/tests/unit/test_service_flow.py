@@ -150,3 +150,15 @@ def test_truncated_stream_is_persisted_as_length(repo, otto):
     row = repo.list_messages(conv.id)[-1]
     assert row.finish_reason == "length" and row.content == "Erster Teil" and row.diagnostics["finish_reason"] == "length"
     assert turn.to_result().finish_reason == "length" and repo.usage().count(otto.user_id, TODAY) == 1
+
+
+def test_manual_filter_is_named_in_the_prompt(service, rita, anna, llm):
+    """REQ-001 R5: the model is told which manual(s) the question is about, so it does not ask for the manual."""
+    conv = service.start_conversation(rita, use_graph=True, doc_ids=None)  # read-only group -> implicit ZSD filter
+    service.ask(rita, conv.id, "Wer ist verantwortlich?").collect()
+    assert llm.stream_calls[-1][-1]["content"].startswith("Kontext:\nHandbuch-Filter: BHB-PLT-0007 „Betriebshandbuch ZSD“")
+    conv2 = service.start_conversation(anna, use_graph=True, doc_ids=None)
+    service.ask(anna, conv2.id, "Wer ist verantwortlich?").collect()  # two manuals in the context, no filter -> no line
+    assert "Handbuch-Filter" not in llm.stream_calls[-1][-1]["content"] and "Handbuch im Kontext" not in llm.stream_calls[-1][-1]["content"]
+    service.ask(anna, conv2.id, "Frage?", doc_ids=[CAAS]).collect()
+    assert "Handbuch-Filter: BHB-PLT-0001" in llm.stream_calls[-1][-1]["content"]

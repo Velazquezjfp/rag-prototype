@@ -442,7 +442,7 @@ class ChatService:
             messages: list[dict[str, str]] | None = None
             prompt_chars = 0
             if not result.weak_evidence or history:
-                kwargs: dict[str, Any] = {"weak_note": result.weak_evidence}
+                kwargs: dict[str, Any] = {"weak_note": result.weak_evidence, "doc_ids": effective_doc_ids}
                 if self.rag_settings is not None:
                     kwargs["context_limit_tokens"] = self.rag_settings.llm.context_limit_tokens
                     kwargs["token_budget"] = self.rag_settings.retrieval.context_token_budget

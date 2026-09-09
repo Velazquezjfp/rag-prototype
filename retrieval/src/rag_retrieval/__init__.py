@@ -25,6 +25,7 @@ from .prompt import (
     build_messages,
     estimate_tokens,
     render_context,
+    scope_line,
 )
 from .retriever import Retriever, default_retriever, retrieve
 from .settings import Settings, get_settings
@@ -59,4 +60,5 @@ __all__ = [
     "render_context",
     "retrieve",
     "rewrite_question",
+    "scope_line",
 ]

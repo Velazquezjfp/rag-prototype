@@ -27,7 +27,8 @@ chat-system/
                    migrations/ (env.py, script.py.mako, versions/0001_initial.py — inside the package)
                    ui/ app.py auth.py sidebar.py chat.py
   scripts/         smoke.sh + smoke_questions.txt, wait_db.sh
-  tests/unit/      conftest (fakes) + 10 test files, 53 tests (49 + 4 AppTest)      tests/integration/  8 live tests
+  tests/unit/      conftest (fakes) + 11 test files, 59 tests (54 + 5 AppTest; 49 + 4 at the original verification)
+                                                                                 tests/integration/  8 live tests
 ```
 
 1,708 lines of source, 2,876 with tests and migrations. Root `.dockerignore` added (the image builds from the root).
@@ -37,9 +38,9 @@ chat-system/
 | Check | Result |
 |---|---|
 | `make lint` | clean (ruff, same rules as the other modules) |
-| `make test` | **49 passed** (in-memory SQLite with the Alembic schema, fake retriever/LLM, mock users) |
+| `make test` | **49 passed** (in-memory SQLite with the Alembic schema, fake retriever/LLM, mock users) — 54 after the 2026-09-09 update below |
 | `CHAT_TEST_DB_URL=postgresql+psycopg://… make test` | **49 passed against Postgres 16** — found and fixed one portability bug (below) |
-| `make test-ui` | **4 passed** — AppTest over the real `app.py` with a fake-backed service: answer + `Quellen (n)` expander + metric 0/10 → 1/10, turn cap disables the input, guardrail note, user switch → rita.read 0/5 |
+| `make test-ui` | **4 passed** — AppTest over the real `app.py` with a fake-backed service: answer + `Quellen (n)` expander + metric 0/10 → 1/10, turn cap disables the input, guardrail note, user switch → rita.read 0/5 — 5 after the update (picking a past conversation) |
 | `make test-integration` | **8 passed** in 46 s — headless: 3 smoke questions answered with citations in the two books, follow-up rewritten and both forms stored, off-topic → guardrail without a model call, read-only user gets ZSD-only citations; UI: the real `app.py` over the real wiring answers with sources and diagnostics, rita.read sees one manual in the multiselect and ZSD-only sources |
 | `make doctor` | db at revision 0001 · 2 manuals (bge-m3) · llm gemini-dev ok · budget k=12 → ~7,644 prompt tokens < 32,000 · users env → dev |
 | `make smoke` | 6/6 through `chat-ask` (table below) |
@@ -69,7 +70,7 @@ rewrite adds one short model call (~1–2 s with gemini-dev) from the second tur
    `Path(__file__)`. `alembic.ini` points there for the bare `alembic` command. `ensure_schema(engine)` runs
    `upgrade head` over the engine's own connection (Alembic's shared-connection recipe), so in-memory SQLite in tests
    gets the same schema as production.
-2. **`TurnStream` persists exactly once**, whichever way it ends: `stop`, `guardrail`, `aborted` (generator closed by
+2. **`TurnStream` persists exactly once**, whichever way it ends: `stop`, `length` (since 2026-09-09), `guardrail`, `aborted` (generator closed by
    `st.write_stream` — partial text kept, usage counted), `error` (model failed — German error text stored, usage
    refunded). A failure *before* streaming (retrieval, prompt too large) also stores an error row and refunds, and
    the user's question is kept. The semaphore is released exactly once via the same path.
@@ -103,6 +104,35 @@ rewrite adds one short model call (~1–2 s with gemini-dev) from the second tur
   `rag_users.UsageStore` (checked with `isinstance` at runtime).
 - `TurnStream` is the object the UI and the CLI share: `tokens()`, `abort()`, `collect()`, `to_result()`, plus
   `citations`/`facts`/`diagnostics`/`result`/`guardrail`/`question_rewritten` readable before streaming.
-- Diagnostics JSON keys the UI renders: `mode, model, llm_called, weak_evidence(_reason), rewritten_question, doc_ids,
-  identifiers, resolved_labels, partial_labels, channels[], timings_ms{rewrite,retrieve,first_token,stream,total},
-  prompt_chars, facts[], entities[], warnings[], error`.
+- Diagnostics JSON keys the UI renders: `mode, model, llm_called, weak_evidence(_reason), weak_follow_up, finish_reason,
+  rewritten_question, doc_ids, identifiers, resolved_labels, partial_labels, channels[],
+  timings_ms{rewrite,retrieve,first_token,stream,total}, prompt_chars, facts[], entities[], warnings[], error`.
+
+## Update 2026-09-09 — REQ-001 phase 1 and two fixes
+
+Recorded in [`requirements/REQ-001-robust-question-understanding.md`](requirements/REQ-001-robust-question-understanding.md)
+(chat side) and its retrieval counterpart. What changed in this module:
+
+- **Follow-up rule** (`service.ask` step 6): a weak retrieval verdict refuses only on a first turn; with history the
+  model is called with the conversation and the retrieval module's weak note instead of the context. Such turns cite
+  nothing (`TurnStream.citations == []`), carry `weak_follow_up=True` and finish as `stop`. Live: "Mach ein Script mit
+  diesen Befehlen" after the Vault-unseal answer yields a bash script of the SOP-ZSD-05 commands.
+- **Truncation persisted** (`TurnStream.tokens`): `finish_reason` is read from the stream after the iteration
+  (duck-typed; `rag_retrieval.TokenStream` provides it) and a cut answer is stored as `length`; the UI caption and
+  the `chat-ask` summary line show it. Live with `RAG__LLM__MAX_TOKENS=200`: `[length · … · Antwort gekürzt (max_tokens)]`.
+- **Status line** (`ui/chat.status_label`): "Keine belastbaren Treffer · schwache Evidenz · Modell nicht aufgerufen",
+  "Keine neuen Treffer · Antwort aus dem Gesprächsverlauf", or the counts with the mode in words; Diagnostik shows
+  `Folgefrage ohne neue Evidenz` and `Antwort gekürzt`. Tested as a pure function (`test_ui_labels.py`): the
+  `st.status` element does not survive the rerun that follows a turn, so AppTest cannot see its final label.
+- **History window and manual filter in the prompt**: `ask()` passes `max_history_turns` from
+  `RAG__RETRIEVAL__HISTORY_TURNS` and `doc_ids=effective_doc_ids`, so the prompt starts with `Handbuch-Filter: …` for
+  a sidebar pick or a read-only group and the model does not ask which manual.
+- **Sidebar fix**: picking a past conversation did nothing — the "keep the widget in step" sync overwrote the pick
+  with the current conversation before the selectbox rendered. The pick is now loaded in the selectbox `on_change`
+  callback; the sync only handles programmatic changes (`test_picking_a_past_conversation_loads_it`).
+
+Verification after the update: `make lint` clean, `make test` **54 passed**, `make test-ui` **5 passed**, `make smoke`
+6 questions ok (the guardrail question still refused without a model call), live `chat-ask` follow-up and truncation
+checks as above. Server note: `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS=1` there (e5 embeddings plus a book filter made
+the two-channel agreement rule refuse "Wer ist verantwortlich?"); settings are read once per process, so a `.env`
+change needs a full restart of `make run`, not a reinstall.

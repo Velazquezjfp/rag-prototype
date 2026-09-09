@@ -80,16 +80,22 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings) -> SidebarSta
         titles = {c.id: f"{c.title or '(ohne Titel)'} · {c.updated_at:%d.%m. %H:%M}" for c in convs}
         options: list[str | None] = [None] + [c.id for c in convs]
         current = ss.conversation_id if ss.conversation_id in options else None
+        # A user's pick is loaded in the widget callback, which runs BEFORE this script rerun — so by the time we get
+        # here, conversation_id already equals the pick. Any remaining difference is a programmatic change (a first
+        # question created the conversation, "Neues Gespräch", another user) and the widget follows the state.
         if ss.get("conversation_pick", "∅") != current:
-            ss.conversation_pick = current  # keep the widget in step with the state (new conversation, other user)
-        picked = st.selectbox(
+            ss.conversation_pick = current
+
+        def _on_pick() -> None:
+            load_conversation(svc, ctx, ss.conversation_pick, doc_options)
+
+        st.selectbox(
             "Gespräche",
             options,
             key="conversation_pick",
             format_func=lambda cid: NEW_LABEL if cid is None else titles.get(cid, cid),
+            on_change=_on_pick,
         )
-        if picked != current:
-            load_conversation(svc, ctx, picked, doc_options)
 
         if "use_graph" not in ss:
             ss.use_graph = settings.retrieval.use_graph_default

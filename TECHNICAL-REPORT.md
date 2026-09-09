@@ -1154,7 +1154,7 @@ sidebar offers the fast/slow toggle, the manual filter, the diagnostics switch a
 under every answer a **Quellen** panel lists the sources, and the optional **Diagnostik** panel shows the
 mode, the rewritten question, the channel table, timings, facts (negatives in red) and entities.
 
-Verified state: 49 unit tests green on SQLite and Postgres, 4 UI smoke tests, 8 live integration tests
+Verified state: 54 unit tests green on SQLite and Postgres, 5 UI smoke tests, 8 live integration tests
 (two of them driving the real application against the real stack), six smoke questions answered through the
 headless CLI, the container image built and answering from inside the container.
 
@@ -1171,7 +1171,7 @@ stage, given a fixed index.
 | Question embedding | yes for the same model and input | an encoder is a fixed function; a different model or prefix is detected and reported |
 | kNN channel | yes in practice | HNSW is approximate, but with a few hundred chunks and k = 20 the graph is essentially exhaustive; the same query returns the same ranks |
 | BM25, identifier, label channels | **yes** | Lucene scoring is deterministic for a fixed index |
-| Fusion, guardrail, seeds, start nodes, expansion, fact and card ordering, budgeting | **yes, exactly** | fixed formulas with explicit tie-breaks; 104 unit tests run them against a fake OpenSearch |
+| Fusion, guardrail, seeds, start nodes, expansion, fact and card ordering, budgeting | **yes, exactly** | fixed formulas with explicit tie-breaks; 112 unit tests run them against a fake OpenSearch |
 | Follow-up rewrite | no (model) | optional; deterministic path when there is no history; falls back to the original question |
 | The answer | no (model) | constrained by the system prompt, the fixed context and the guardrail; temperature 0 |
 | Graph extraction at ingest | **no (model)** | 279 / 255 / 250 nodes for the same PDF; constrained by the ontology schema and validated afterwards |
@@ -1188,7 +1188,7 @@ What this determinism buys in practice:
 
 - **Explainability.** Every hit shows the channels and ranks that found it; every fact shows the edge, the
   quote and the page. A wrong answer can be traced to a wrong fact or a missing chunk, not to "the model".
-- **Testability.** The retrieval module has 104 unit tests over a fake search client that reimplements the
+- **Testability.** The retrieval module has 112 unit tests over a fake search client that reimplements the
   needed OpenSearch behaviour (cosine kNN, token-overlap BM25 with German stop words, term filters,
   msearch, mget); the graph tests run on the real extraction output. The 13 live tests then only confirm
   that the real cluster behaves like the fake.

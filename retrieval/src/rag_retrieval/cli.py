@@ -197,6 +197,7 @@ def ask(
             max_facts=s.retrieval.max_facts_in_prompt,
             context_limit_tokens=s.llm.context_limit_tokens,
             max_history_turns=s.retrieval.history_turns,
+            doc_ids=doc or None,
         )
         if stream:
             for tok in out:  # type: ignore[union-attr]

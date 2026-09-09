@@ -80,6 +80,34 @@ Full texts in `out/questions/<n>-answer.txt` after `ANSWER=1 make questions`.
    one entity card through the alias; attributes from the two books stay side by side (ZSD: IAM-Betrieb, 1315; CaaS:
    IAM (Keycloak)).
 
+## Changes after this report — REQ-001 phase 1 (2026-09-08/09)
+
+Recorded in [`requirements/REQ-001-robust-question-understanding.md`](requirements/REQ-001-robust-question-understanding.md);
+the retrieval channels, fusion and guardrail rule of the table above are unchanged, the answer path is not:
+
+- **Prompt.** Rule 1 lets the model reuse and transform its earlier answers of the conversation (script, summary,
+  table) without adding facts. Rule 3 is graded: a partial match or a question without a concrete system gets what the
+  manuals contain (with sources) plus one clarifying question naming the systems/manuals of the context as options;
+  the canned sentence is reserved for "nothing in context nor in earlier answers". A leading `Handbuch-Filter` /
+  `Handbuch im Kontext` line (`prompt.scope_line`) tells the model which manual the question is about, so it does not
+  ask for the manual when the user filtered one (`--doc`, sidebar). `OVERVIEW_INSTRUCTION_DE` exists for the overview
+  mode of phase 4 and is not emitted yet.
+- **Follow-up rule.** `answer()` refuses a weak verdict without a model call only on a first turn; with history the
+  model is called with the conversation and `WEAK_FOLLOW_UP_NOTE_DE` instead of the context (nothing cited). The CLI
+  exits 2 only without `--history-file`.
+- **History window.** `RetrievalSettings.history_turns` (`RAG__RETRIEVAL__HISTORY_TURNS`, default 3, server 10).
+- **Truncation.** `ChatClient.stream()` returns a `TokenStream` whose `finish_reason` is known after the iteration;
+  the CLI prints "[Antwort vom Modell gekürzt …]" when it is `length`.
+
+Live results on the dev box (gemini-dev): "Wer ist verantwortlich?" → responsibilities per system, closing with
+"Welches System oder Handbuch ist gemeint: CaaS (BHB-PLT-0001) oder ZSD (BHB-PLT-0007)?"; the same with
+`--doc BHB-PLT-0001` → the CaaS roles only and a question about the component, not the manual; "Mach ein Script mit
+diesen Befehlen" after the Vault-unseal answer (history file) → the unseal commands as a script although the rewrite
+came back truncated and the retrieval was weak. Baseline measured before the change: all 14 on-topic regression
+questions of REQ-001 pass the guardrail here, only off-topic ones are refused; on the server (e5 embeddings, book
+filter) the two-channel agreement rule refused "Wer ist verantwortlich?", hence `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS=1`
+there until phases 2–4. Unit tests: 112.
+
 ## Not covered yet
 
 - Only two of the five manuals are indexed; questions about the Event-System (BHB-PLT-0042), VPP (BHB-VRF-0207) or

@@ -31,7 +31,9 @@ evidence, and answers cut by `max_tokens` appeared as empty bubbles because the 
 | Weak follow-up after an answer with commands | model called with history + note, `guardrail=False`, `weak_follow_up=True`, `citations == []`, `finish_reason=stop`, counted | `test_service_guardrail.py::test_weak_follow_up_is_answered_from_the_conversation` |
 | `history_turns=1` in the retrieval settings | the prompt carries one earlier pair | `test_service_flow.py::test_history_window_comes_from_the_retrieval_settings` |
 | Stream reports `length` | turn and row `finish_reason=length`, text kept, usage counted | `test_service_flow.py::test_truncated_stream_is_persisted_as_length` |
-| Normal turn | status line "2 Quellen · 1 Fakten · 1 Entitäten (Graph)" | `test_ui_smoke.py::test_status_label_counts_sources_on_a_normal_turn` |
+| Normal turn | status line "2 Quellen · 1 Fakten · 1 Entitäten (Graph)" | `test_ui_labels.py::test_status_label_is_honest_about_what_was_used` |
+| Manual filter active (sidebar pick or read-only group) | the prompt starts with `Handbuch-Filter: <id> „<title>“`; the model does not ask which manual | `test_service_flow.py::test_manual_filter_is_named_in_the_prompt` |
+| Picking a past conversation in the sidebar | its messages load (regression fix 2026-09-09: the pick was reset before the widget rendered) | `test_ui_smoke.py::test_picking_a_past_conversation_loads_it` |
 
 Live: `make smoke`; `chat-ask "Wie entsiegle ich den Vault?" --json` → conversation id → `chat-ask "Mach ein Script
 mit diesen Befehlen" --conversation <id>` yields a script with `guardrail=False`; `RAG__LLM__MAX_TOKENS=200 make ask …`
@@ -44,7 +46,7 @@ enumerating answers and reasoning models (truncation is visible now, not silent)
 
 ## 5. Affected files
 
-`src/chat_system/service.py` (`ask()` step 6, `TurnStream.citations`/`weak_follow_up`/`diagnostics`/`tokens()`),
-`ui/chat.py` (`status_label()`, captions, Diagnostik), `cli.py` (summary line), `.env.example`; tests
+`src/chat_system/service.py` (`ask()` step 6 incl. `doc_ids` for the prompt, `TurnStream.citations`/`weak_follow_up`/`diagnostics`/`tokens()`),
+`ui/chat.py` (`status_label()`, captions, Diagnostik), `ui/sidebar.py` (conversation picker loads in `on_change`), `cli.py` (summary line), `.env.example`; tests
 `tests/unit/test_service_guardrail.py`, `test_service_flow.py`, `test_ui_smoke.py`. Documentation: `README.md`
 ("How a question is answered", steps 7–8).

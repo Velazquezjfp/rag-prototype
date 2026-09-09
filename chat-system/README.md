@@ -12,6 +12,12 @@ AppTest smokes, 8 live integration tests (6 headless, 2 driving the real `app.py
 `chat-ask` including the guardrail question and the read-only user; the container image builds from the repository
 root and answers a question from inside the container. Details and the answers: [`REPORT.md`](REPORT.md).
 
+Updated 2026-09-09 ([`requirements/REQ-001`](requirements/REQ-001-robust-question-understanding.md), phase 1):
+weak follow-ups are answered from the conversation instead of refused, a stream cut by `max_tokens` is stored and
+shown as `length`, the search status line says what was used, the active manual filter is named in the prompt so
+the model does not ask which manual, the history window is `RAG__RETRIEVAL__HISTORY_TURNS`, and picking a past
+conversation in the sidebar loads it again (regression fix). Now 54 unit tests and 5 AppTest smokes.
+
 ## How a question is answered
 
 ```
@@ -96,6 +102,10 @@ directory is consulted too (the osi chain). Environment and `.env` override per 
 Small Ollama models: `RAG__LLM__CONTEXT_LIMIT_TOKENS=4096`, `RAG__RETRIEVAL__CONTEXT_TOKEN_BUDGET=2500`,
 `CHAT__RETRIEVAL__K=4`, `CHAT__RETRIEVAL__K_GRAPH=6` — `chat-doctor` warns when `k × 512 + 1500` exceeds the context limit.
 
+Large served context (server): `RAG__RETRIEVAL__HISTORY_TURNS=10`. When kNN and BM25 rarely agree on the top hits
+(e5 embeddings plus a book filter refused "Wer ist verantwortlich?"): `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS=1` — off-topic
+questions stay refused via the BM25 stop (REQ-001, until phases 2–4 add evidence sources).
+
 ## CLI
 
 | Command | What it does |
@@ -121,9 +131,11 @@ in compose; the unit tests re-run against it with `CHAT_TEST_DB_URL=postgresql+p
 ## Tests
 
 ```bash
-make test               # 49 unit tests, no services: in-memory SQLite with the Alembic schema, FakeRetriever (canned
-                        # RetrievalResults incl. weak_evidence), FakeLLM (tokens / rewrite / failures), the mock users
-make test-ui            # 4 Streamlit AppTest smokes over app.py with a fake-backed service (answer + Quellen, cap, guardrail, user switch)
+make test               # 54 unit tests, no services: in-memory SQLite with the Alembic schema, FakeRetriever (canned
+                        # RetrievalResults incl. weak_evidence), FakeLLM (tokens / rewrite / failures), the mock users,
+                        # the status line as a pure function (test_ui_labels.py)
+make test-ui            # 5 Streamlit AppTest smokes over app.py with a fake-backed service (answer + Quellen, cap, guardrail,
+                        # user switch, picking a past conversation)
 make test-integration   # 8 live tests: 3 smoke questions + rewrite + guardrail + read-only filter headless, 2 driving the real app.py
 CHAT_TEST_DB_URL=postgresql+psycopg://chat:chat@127.0.0.1:5432/chat make test     # the same unit tests on Postgres
 ```

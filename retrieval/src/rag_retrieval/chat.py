@@ -209,6 +209,7 @@ def answer(
     max_facts: int | None = None,
     context_limit_tokens: int | None = None,
     max_history_turns: int = 3,
+    doc_ids: Sequence[str] | None = None,
 ) -> str | Iterable[str]:
     """Guardrail first (ADR-0011, amended by REQ-001 R6): weak evidence on a *first* turn answers
     ``NO_EVIDENCE_ANSWER`` without a model call unless ``force``; on a follow-up (``history`` given) the model is
@@ -228,6 +229,7 @@ def answer(
         max_history_turns=max_history_turns,
         context_limit_tokens=context_limit_tokens,
         weak_note=weak_note,
+        doc_ids=doc_ids,
     )
     if stream:
         return llm.stream(messages, model=model)

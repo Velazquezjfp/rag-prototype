@@ -73,3 +73,22 @@ def test_user_switch_changes_identity_and_quota(ui):
     assert not at.exception, at.exception
     assert at.metric[0].value == "0/5"
     assert "rita.read" in at.sidebar.caption[0].value
+
+
+def test_picking_a_past_conversation_loads_it(ui):
+    """Regression: the sidebar used to reset the pick to the current conversation before the widget rendered, so
+    selecting a past conversation did nothing."""
+    at, svc = ui()
+    at.run()
+    at.chat_input[0].set_value("Erste Frage zu Vault?").run()
+    first_id = svc.list_conversations(svc.repo.get_conversation.__self__ and __import__("rag_users").USERS["dev"])[0].id
+    at.sidebar.button[0].click().run()                     # "Neues Gespräch"
+    assert at.chat_message == [] or len(at.chat_message) == 0
+    at.chat_input[0].set_value("Zweite Frage zu Keycloak?").run()
+    assert len(svc.list_conversations(__import__("rag_users").USERS["dev"])) == 2
+    picker = next(sb for sb in at.sidebar.selectbox if sb.label == "Gespräche")
+    picker.select(first_id).run()
+    assert not at.exception, at.exception
+    shown = [m.markdown[0].value for m in at.chat_message]
+    assert shown and shown[0] == "Erste Frage zu Vault?" and "Vault ist versiegelt" in shown[1], shown
+    assert picker.value == first_id or next(sb for sb in at.sidebar.selectbox if sb.label == "Gespräche").value == first_id

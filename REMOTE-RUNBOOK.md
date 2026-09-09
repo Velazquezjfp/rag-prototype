@@ -190,7 +190,7 @@ Never put `HTTP(S)_PROXY` in `.env`: every endpoint is loopback and the clients 
 # tunnels up, then:
 curl -s --noproxy '*' http://localhost:11435/v1/models       # whatever port your tunnel uses
 
-make test               # 104 unit tests, offline
+make test               # 112 unit tests, offline
 make check              # aliases, indexed documents + their embedding model vs configured, embedding probe, LLM probe
 make graph-stats        # in-memory union graph: 2 documents, shared node ids, edges (negative count), labels indexed
 ```
@@ -254,7 +254,7 @@ cp .env.example .env
 | `RAG__GUARDRAIL__MIN_AGREEING_CHANNELS` | `1` (e5 + book filter: the two-channel rule refuses legitimate general questions; off-topic is still refused via the BM25 stop) | back to 2 once REQ-001 phases 2–4 are deployed |
 
 ```bash
-make test && make test-ui                 # 49 unit + 4 AppTest, offline
+make test && make test-ui                 # 54 unit + 5 AppTest, offline
 make doctor                               # db, opensearch (2 manuals + embedding model), llm probe, resolved user, prompt budget
 make db-init                              # alembic upgrade head -> data/chat.db
 make ask Q="Was war bei CAASUP-0338?" ARGS="--no-graph --user otto.ops"

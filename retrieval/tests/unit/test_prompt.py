@@ -21,6 +21,7 @@ from rag_retrieval.prompt import (
     estimate_tokens,
     merge_parts,
     render_context,
+    scope_line,
     source_header,
 )
 
@@ -107,7 +108,9 @@ def test_build_messages_shape_history_and_limit():
     msgs = build_messages(res, "Frage?", history, max_history_turns=2)
     assert msgs[0] == {"role": "system", "content": SYSTEM_PROMPT_DE}
     assert [m["content"] for m in msgs[1:-1]] == ["u6", "a7", "u8", "a9"]
-    assert msgs[-1]["role"] == "user" and msgs[-1]["content"].startswith("Kontext:\n## Quellen") and msgs[-1]["content"].endswith("\n\nFrage: Frage?")
+    assert msgs[-1]["role"] == "user" and msgs[-1]["content"].endswith("\n\nFrage: Frage?")
+    # a single-manual context is named first (REQ-001 R5), then the rendered block
+    assert msgs[-1]["content"].startswith("Kontext:\nHandbuch im Kontext: BHB-PLT-0007 „ZSD“") and "\n\n## Quellen" in msgs[-1]["content"]
     assert build_messages(res, "Frage?", None, system_prompt="S")[0]["content"] == "S"
     with pytest.raises(ValueError, match="context limit"):
         build_messages(res, "Frage?", context_limit_tokens=10)
@@ -142,3 +145,23 @@ def test_weak_note_replaces_the_context_and_keeps_the_history():
     assert "## Quellen" not in msgs[-1]["content"] and "Text." not in msgs[-1]["content"]
     assert msgs[-1]["content"].startswith("Kontext:\n" + WEAK_FOLLOW_UP_NOTE_DE) and msgs[-1]["content"].endswith("Frage: Mach ein Script daraus")
     assert NO_EVIDENCE_ANSWER in WEAK_FOLLOW_UP_NOTE_DE and "früheren Antworten" in WEAK_FOLLOW_UP_NOTE_DE
+    # an explicit manual filter is still named on a weak follow-up; nothing is derived from the non-evidence chunks
+    with_filter = build_messages(_result([g], weak=True), "q", history, weak_note=True, doc_ids=["BHB-PLT-0001"])
+    assert with_filter[-1]["content"].startswith("Kontext:\nHandbuch-Filter: BHB-PLT-0001 – die Frage")
+
+
+def test_scope_line_names_the_filter_or_the_single_manual():
+    """REQ-001 R5: with a manual filter (or a single manual in the context) the model must not ask which manual."""
+    g = _group([_hit("c1", [4], "Text.")])
+    res = _result([g])
+    assert scope_line(res, ["BHB-PLT-0007"]) == "Handbuch-Filter: BHB-PLT-0007 „ZSD“ – die Frage bezieht sich auf dieses Handbuch."
+    assert scope_line(res, None) == "Handbuch im Kontext: BHB-PLT-0007 „ZSD“ – die Frage bezieht sich auf dieses Handbuch."
+    two = scope_line(res, ["BHB-PLT-0001", "BHB-PLT-0007"])
+    assert two.startswith("Handbuch-Filter (mehrere): BHB-PLT-0001, BHB-PLT-0007 „ZSD“") and two.endswith("diese Handbücher.")
+    # two manuals in the context and no filter -> no line (asking which manual is legitimate)
+    other = _hit("c2", [5], "Anderes.")
+    other.doc_id = "BHB-PLT-0001"
+    assert scope_line(_result([g, _group([other], rank=2)]), None) is None
+    msgs = build_messages(res, "Wer ist verantwortlich?", doc_ids=["BHB-PLT-0007"])
+    assert msgs[-1]["content"].startswith("Kontext:\nHandbuch-Filter: BHB-PLT-0007")
+    assert "Handbuch-Filter" in SYSTEM_PROMPT_DE and "nicht nach dem Handbuch" in SYSTEM_PROMPT_DE

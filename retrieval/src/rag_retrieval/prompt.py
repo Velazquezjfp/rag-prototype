@@ -15,7 +15,7 @@ SYSTEM_PROMPT_DE = f"""Du bist der Assistent für die IT-Betriebshandbücher (BH
 Regeln:
 1. Verwende nur Informationen aus dem Kontext und aus deinen eigenen früheren Antworten in diesem Gespräch. Frühere Antworten darfst du weiterverwenden und umformen (z. B. zu einem Skript, einer Zusammenfassung oder einer Tabelle), ohne neue Fakten, Befehle oder Werte hinzuzufügen. Ergänze nichts aus eigenem Wissen und rate nicht.
 2. Belege jede Aussage mit der Quelle in eckigen Klammern, z. B. [BHB-PLT-0007 S. 19]. Dokument-ID und Seite stehen bei jeder Entität, jedem Fakt und jeder Quelle.
-3. Beantwortet der Kontext die Frage nur teilweise oder nennt die Frage kein konkretes System, sage zuerst, was die Handbücher zu dem Thema enthalten (mit Quellen), und frage dann in einem Satz nach, welches System oder Handbuch gemeint ist; nenne dabei die im Kontext vorkommenden Systeme bzw. Handbücher als Auswahl. Enthalten weder der Kontext noch deine früheren Antworten etwas zur Frage, antworte genau mit: „{NO_EVIDENCE_ANSWER}“ – ohne weitere Sätze.
+3. Beantwortet der Kontext die Frage nur teilweise oder nennt die Frage kein konkretes System, sage zuerst, was die Handbücher zu dem Thema enthalten (mit Quellen), und frage dann in einem Satz nach, welches System oder Handbuch gemeint ist; nenne dabei die im Kontext vorkommenden Systeme bzw. Handbücher als Auswahl. Steht im Kontext ein „Handbuch-Filter“ oder kommt dort nur ein Handbuch vor, gilt die Frage für genau dieses Handbuch: frage dann nicht nach dem Handbuch, sondern antworte dafür, und frage höchstens nach der konkreten Komponente oder Aufgabe, wenn die Frage sonst nicht zu beantworten ist. Enthalten weder der Kontext noch deine früheren Antworten etwas zur Frage, antworte genau mit: „{NO_EVIDENCE_ANSWER}“ – ohne weitere Sätze.
 4. Fakten mit „NICHT“ sind ausdrücklich verneinte Aussagen (z. B. es besteht KEINE Abhängigkeit). Einträge mit „severity: keine“ bedeuten: keine Auswirkung. Gib solche Verneinungen als Verneinung wieder und nenne die Begründung aus dem Zitat.
 5. Widersprechen sich zwei Handbücher, nenne beide Aussagen mit ihren Quellen, ohne eine davon zu verwerfen.
 6. Übernimm Bezeichner wörtlich: Ticket-, SOP-, Firewall-, Host-, Zonen- und Dokument-IDs, Namen, Ports, Pfade.
@@ -146,6 +146,27 @@ def _as_message(m: Message | Mapping[str, Any]) -> Message:
     return m if isinstance(m, Message) else Message.model_validate(dict(m))
 
 
+def scope_line(result: RetrievalResult, doc_ids: Sequence[str] | None) -> str | None:
+    """The first line of the context: the active manual filter, or the single manual the context comes from.
+
+    Tells the model which manual(s) the question is about, so it does not ask "welches Handbuch?" when the user
+    already chose one in the UI (REQ-001 R5)."""
+    titles: dict[str, str] = {}
+    for g in result.groups:
+        if g.doc_title:
+            titles.setdefault(g.doc_id, g.doc_title)
+    if doc_ids:
+        docs = list(dict.fromkeys(doc_ids))
+        label = "Handbuch-Filter" if len(docs) == 1 else "Handbuch-Filter (mehrere)"
+    else:
+        docs = sorted({g.doc_id for g in result.groups} | {d for f in result.facts for d in f.doc_ids})
+        if len(docs) != 1:
+            return None
+        label = "Handbuch im Kontext"
+    names = ", ".join(f"{d} „{titles[d]}“" if d in titles else d for d in docs)
+    return f"{label}: {names} – die Frage bezieht sich auf {'dieses Handbuch' if len(docs) == 1 else 'diese Handbücher'}."
+
+
 def build_messages(
     result: RetrievalResult,
     question: str,
@@ -157,11 +178,13 @@ def build_messages(
     max_history_turns: int = 3,
     context_limit_tokens: int | None = None,
     weak_note: bool = False,
+    doc_ids: Sequence[str] | None = None,
 ) -> list[dict[str, str]]:
     """``system`` + the last ``max_history_turns`` user/assistant pairs + ``Kontext: … Frage: …``.
 
     ``weak_note`` (a follow-up whose retrieval found no new evidence) replaces the context by
-    ``WEAK_FOLLOW_UP_NOTE_DE``; an ``overview`` result appends ``OVERVIEW_INSTRUCTION_DE`` to the system prompt.
+    ``WEAK_FOLLOW_UP_NOTE_DE``; an ``overview`` result appends ``OVERVIEW_INSTRUCTION_DE`` to the system prompt;
+    ``doc_ids`` (the active manual filter) is named at the top of the context (``scope_line``).
     Raises ``ValueError`` when the estimated prompt exceeds ``context_limit_tokens``."""
     system = system_prompt or SYSTEM_PROMPT_DE
     if getattr(result, "mode", None) == "overview":
@@ -173,8 +196,12 @@ def build_messages(
             messages.append({"role": m.role, "content": m.content})
     if weak_note:
         context = WEAK_FOLLOW_UP_NOTE_DE
+        scope = scope_line(result, doc_ids) if doc_ids else None  # never derive a scope from non-evidence chunks
     else:
         context = render_context(result, token_budget=token_budget, max_facts=max_facts).text
+        scope = scope_line(result, doc_ids)
+    if scope:
+        context = f"{scope}\n\n{context}"
     messages.append({"role": "user", "content": f"Kontext:\n{context}\n\nFrage: {question}"})
     if context_limit_tokens is not None:
         total = sum(estimate_tokens(m["content"]) for m in messages)
