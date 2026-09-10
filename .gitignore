@@ -4,7 +4,6 @@ SPEC.md
 /venv-rag
 /.claude
 /opensearch-index
-/user-manual-books
 /chat-system/.venv/
 /chat-system/.env
 /chat-system/data/
