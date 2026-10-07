@@ -1,0 +1,15 @@
+# database_comparison – Jupyter-Vergleich OpenSearch / SQLite+numpy / zvec
+# Installation:  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+jupyterlab>=4.2,<5
+ipykernel>=6.29
+pandas>=2.2,<3
+numpy>=2.0,<3
+itables>=2.2,<3            # scrollbare, durchsuchbare Tabellen im Notebook (offline, kein CDN)
+psutil>=6.0                # RSS des Notebook-Prozesses (Ressourcenvergleich)
+regex>=2024.5              # Unicode-Wortgrenzen für den Standard-Tokenizer (UAX #29)
+opensearch-py>=3.2,<4
+httpx>=0.27
+zvec==0.7.0                # Machbarkeitsblock
+-e ../opensearch-index     # osi: build_batch, Indexer, Ontologie, Mappings
+-e ../retrieval            # rag_retrieval: der echte Retriever (Analyse, RRF, Guardrail, Graph, Prompt)
+python-dotenv>=1.0           # .env in Zelle 1 laden

@@ -27,3 +27,8 @@ SPEC.md
 /users/.env
 
 
+/database_comparison/.venv/
+/database_comparison/.env
+/database_comparison/data/
+/database_comparison/.ipynb_checkpoints/
+/database_comparison/__pycache__/
