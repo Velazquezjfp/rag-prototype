@@ -1,0 +1,21 @@
+# Dex plays OAM: one OIDC login server with one static user carrying the same three fields as the OAM token
+# (user ID, name, e-mail). Issuer is localhost:5556 for the browser AND for oauth2-proxy (same network namespace).
+issuer: http://localhost:5556/dex
+storage:
+  type: memory
+web:
+  http: 0.0.0.0:5556
+oauth2:
+  skipApprovalScreen: true
+enablePasswordDB: true
+staticClients:
+  - id: chat-poc
+    name: chat-poc
+    secret: chat-poc-secret
+    redirectURIs:
+      - http://localhost:4180/oauth2/callback
+staticPasswords:
+  - email: max.muster@example.org
+    hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W" # bcrypt of "password"
+    username: max.muster
+    userID: "u1234567"
