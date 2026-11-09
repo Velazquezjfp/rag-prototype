@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph-Viewer</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --hair: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,.10); --edge: #898781; --neg: #d03b3b;
+    /* Kategorien: 4 Slots der Referenzpalette (blau, gelb, magenta, grün), all-pairs-validiert; Dokumentation neutral */
+    --g-technik: #2a78d6; --g-organisation: #eda100; --g-stoerung: #e87ba4; --g-betrieb: #008300; --g-dokumentation: #898781;
+    --g-sonstige: #898781;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+      --hair: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,.10); --edge: #898781; --neg: #d03b3b;
+      --g-technik: #3987e5; --g-organisation: #c98500; --g-stoerung: #d55181; --g-betrieb: #008300; --g-dokumentation: #898781;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--page); display: flex; flex-direction: column; }
+  header { display: flex; align-items: baseline; gap: 14px; padding: 8px 16px; border-bottom: 1px solid var(--hair); background: var(--surface); flex-wrap: wrap; }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  #status { margin-left: auto; color: var(--ink-2); font-size: 12px; min-height: 1em; }
+  #status.err { color: var(--neg); }
+  main { flex: 1; display: flex; min-height: 0; }
+  aside { background: var(--surface); overflow: auto; padding: 12px 14px; }
+  #side { width: 290px; flex: none; border-right: 1px solid var(--hair); }
+  #detail { width: 400px; flex: none; border-left: 1px solid var(--hair); }
+  #detail[hidden] { display: none; }
+  #cy { flex: 1; min-width: 0; background: var(--page); }
+  section { margin-bottom: 18px; }
+  h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+  h2 .spacer { flex: 1; }
+  h2 button, .linkbtn { background: none; border: 0; color: var(--ink-2); cursor: pointer; font-size: 11px; padding: 0 2px; text-transform: none; letter-spacing: 0; }
+  h2 button:hover, .linkbtn:hover { color: var(--ink); text-decoration: underline; }
+  button.btn { font: inherit; font-size: 12px; padding: 5px 10px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink); border-radius: 6px; cursor: pointer; }
+  button.btn:hover { border-color: var(--ink-2); }
+  button.btn.primary { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  button.btn:disabled { opacity: .45; cursor: default; }
+  .btnrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  label.row { display: flex; align-items: center; gap: 7px; padding: 2px 0; cursor: pointer; }
+  label.row input { margin: 0; }
+  .folder { margin: 6px 0 8px; }
+  .folder .name { font-weight: 600; }
+  .file .meta { color: var(--muted); font-size: 11px; margin-left: auto; white-space: nowrap; }
+  .swatch { width: 18px; height: 11px; border-radius: 3px; background: currentColor; flex: none; }
+  .swatch.pill { border-radius: 999px; }
+  .swatch.cut { border-radius: 0; clip-path: polygon(25% 0, 75% 0, 100% 35%, 100% 65%, 75% 100%, 25% 100%, 0 65%, 0 35%); }
+  .swatch.tag { border-radius: 2px; clip-path: polygon(0 0, 75% 0, 100% 50%, 75% 100%, 0 100%); }
+  .swatch.rect { border-radius: 0; background: none; border: 2px dashed currentColor; }
+  .count { color: var(--muted); font-size: 11px; margin-left: auto; }
+  .group { margin: 6px 0 2px; font-size: 11px; color: var(--ink-2); }
+  input[type=search] { width: 100%; font: inherit; padding: 6px 8px; border: 1px solid var(--axis); border-radius: 6px; background: var(--surface); color: var(--ink); }
+  .pill { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 2px solid currentColor; }
+  .chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 4px; background: var(--hair); color: var(--ink-2); margin: 0 4px 4px 0; }
+  .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--ink-2); word-break: break-all; }
+  #detail h3 { font-size: 15px; margin: 4px 0 6px; font-weight: 600; }
+  #detail h4 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 4px; }
+  table.kv { border-collapse: collapse; width: 100%; font-size: 12px; }
+  table.kv td { padding: 2px 6px 2px 0; vertical-align: top; border-bottom: 1px solid var(--hair); }
+  table.kv td:first-child { color: var(--ink-2); white-space: nowrap; width: 38%; }
+  blockquote { margin: 4px 0; padding: 4px 10px; border-left: 3px solid var(--axis); color: var(--ink-2); font-size: 12px; }
+  details.chunk { margin: 3px 0; font-size: 12px; }
+  details.chunk summary { cursor: pointer; color: var(--ink-2); }
+  details.chunk pre { white-space: pre-wrap; font: 12px/1.4 inherit; margin: 4px 0 6px; padding: 6px 8px; background: var(--page); border: 1px solid var(--hair); border-radius: 6px; }
+  ul.neigh { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+  ul.neigh li { padding: 3px 0; border-bottom: 1px solid var(--hair); cursor: pointer; }
+  ul.neigh li:hover { color: var(--ink); background: var(--page); }
+  ul.neigh .rel { color: var(--muted); font-size: 11px; }
+  .neg { color: var(--neg); font-weight: 600; }
+  .occ { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--hair); }
+  .closebtn { float: right; }
+  .hint { color: var(--muted); font-size: 12px; margin: 4px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Graph-Viewer</h1>
+  <span id="loaded" class="muted small">keine Datei geladen</span>
+  <span id="counts" class="small"></span>
+  <span id="status"></span>
+</header>
+<main>
+  <aside id="side">
+    <section>
+      <h2>Ordner <span class="spacer"></span><button id="refresh" title="Ordner neu einlesen">↻ neu einlesen</button></h2>
+      <div id="files" class="hint">lade …</div>
+      <div class="btnrow"><button id="load" class="btn primary" disabled>Laden</button></div>
+    </section>
+    <section>
+      <h2>Suche</h2>
+      <input id="search" type="search" placeholder="Label oder Alias …" autocomplete="off">
+      <div id="searchinfo" class="hint"></div>
+    </section>
+    <section>
+      <h2>Ansicht</h2>
+      <label class="row"><input type="checkbox" id="showIsolated"> Isolierte Knoten anzeigen <span class="count" id="isoCount"></span></label>
+      <label class="row"><input type="checkbox" id="showEdgeLabels" checked> Kantenbeschriftung</label>
+      <div class="btnrow">
+        <button id="relayout" class="btn">Layout neu</button>
+        <button id="fit" class="btn">Einpassen</button>
+        <button id="png" class="btn">PNG speichern</button>
+      </div>
+    </section>
+    <section>
+      <h2>Knotentypen <span class="spacer"></span><button data-all="types" data-on="1">alle</button><button data-all="types" data-on="0">keine</button></h2>
+      <div id="types" class="hint">–</div>
+    </section>
+    <section>
+      <h2>Relationen <span class="spacer"></span><button data-all="rels" data-on="1">alle</button><button data-all="rels" data-on="0">keine</button></h2>
+      <div id="rels" class="hint">–</div>
+    </section>
+  </aside>
+  <div id="cy"></div>
+  <aside id="detail" hidden></aside>
+</main>
+
+<script src="vendor/cytoscape.min.js"></script>
+<script src="vendor/layout-base.js"></script>
+<script src="vendor/cose-base.js"></script>
+<script src="vendor/cytoscape-fcose.js"></script>
+<script src="vendor/cytoscape-layout-utilities.js"></script>
+<script>
+'use strict';
+if (window.cytoscapeFcose) cytoscape.use(window.cytoscapeFcose);
+if (window.cytoscapeLayoutUtilities) cytoscape.use(window.cytoscapeLayoutUtilities);
+
+// ---------------------------------------------------------------- Konstanten
+const GROUPS = {
+  Organisation: ['Person', 'OrgUnit'],
+  Technik: ['System', 'Component', 'Host', 'Namespace', 'Environment', 'NetworkZone', 'FirewallRule', 'DataStore', 'IdentityClient', 'CertificateAuthority', 'SecretStorePath'],
+  Betrieb: ['Procedure', 'StartupStep', 'MaintenanceWindow'],
+  Störung: ['Incident', 'FailureMode', 'ImpactStatement', 'Alert', 'OpenItem'],
+  Dokumentation: ['Document', 'Term'],
+};
+const GROUP_VAR = { Organisation: '--g-organisation', Technik: '--g-technik', Betrieb: '--g-betrieb', Störung: '--g-stoerung', Dokumentation: '--g-dokumentation', Sonstige: '--g-sonstige' };
+const TYPE_GROUP = {};
+for (const [g, types] of Object.entries(GROUPS)) for (const t of types) TYPE_GROUP[t] = g;
+const groupOf = t => TYPE_GROUP[t] || 'Sonstige';
+// Zweitkodierung neben der Farbe: Form je Gruppe (Legende zeigt dieselbe Form); Zusatzbreite, damit das Label hineinpasst
+const GROUP_SHAPE = { Organisation: 'pill', Technik: 'round', Betrieb: 'tag', Störung: 'cut', Dokumentation: 'rect', Sonstige: 'round' };
+const SHAPE_EXTRA_W = { pill: 10, tag: 16, cut: 8, round: 0, rect: 0 };
+
+const FONT_FAMILY = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+const FONT_PX = 11, MAX_TEXT_W = 150, LINE_H = 14, PAD_X = 18, PAD_Y = 12, MAX_LABEL = 42;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const cssVar = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// ---------------------------------------------------------------- Server
+async function api(path) {
+  const r = await fetch(path, { cache: 'no-store' });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.error || `${r.status} ${r.statusText}`);
+  return body;
+}
+const chunkCache = new Map(); // "folder\u0000chunk_id" -> chunk
+async function chunkText(folder, id) {
+  const key = folder + '\u0000' + id;
+  if (!chunkCache.has(key)) {
+    const rows = await api(`/api/chunks?folder=${encodeURIComponent(folder)}&ids=${encodeURIComponent(id)}`);
+    chunkCache.set(key, rows[0] || null);
+  }
+  return chunkCache.get(key);
+}
+
+function setStatus(text, isErr) { const el = $('#status'); el.textContent = text || ''; el.classList.toggle('err', !!isErr); }
+
+// ---------------------------------------------------------------- Knotengröße (Label innen, Zeilenumbruch bei MAX_TEXT_W)
+const measureCtx = document.createElement('canvas').getContext('2d');
+function sizeFor(text) {
+  measureCtx.font = `${FONT_PX}px ${FONT_FAMILY}`;
+  const width = s => measureCtx.measureText(s).width;
+  let lines = 1, cur = '', widest = 0;
+  for (const word of text.split(/\s+/)) {
+    const ww = width(word);
+    if (ww > MAX_TEXT_W) { // überlange Wörter bricht Cytoscape mitten im Wort um
+      if (cur) { widest = Math.max(widest, width(cur)); lines++; }
+      lines += Math.ceil(ww / MAX_TEXT_W) - 1; widest = MAX_TEXT_W; cur = word; continue;
+    }
+    const t = cur ? cur + ' ' + word : word;
+    if (cur && width(t) > MAX_TEXT_W) { widest = Math.max(widest, width(cur)); cur = word; lines++; } else cur = t;
+  }
+  widest = Math.max(widest, Math.min(MAX_TEXT_W, width(cur)));
+  return { w: Math.ceil(widest) + PAD_X, h: lines * LINE_H + PAD_Y };
+}
+const shorten = s => (s.length > MAX_LABEL ? s.slice(0, MAX_LABEL - 1).trimEnd() + '…' : s);
+
+// ---------------------------------------------------------------- Cytoscape
+function colors() {
+  const c = { surface: cssVar('--surface'), ink: cssVar('--ink'), ink2: cssVar('--ink-2'), hair: cssVar('--hair'), edge: cssVar('--edge'), neg: cssVar('--neg'), groups: {} };
+  for (const [g, v] of Object.entries(GROUP_VAR)) c.groups[g] = cssVar(v);
+  return c;
+}
+function stylesheet(c) {
+  return [
+    { selector: 'node', style: {
+      shape: 'round-rectangle', 'corner-radius': '6px', width: 'data(w)', height: 'data(h)',
+      'background-color': c.surface, 'border-width': 2, 'border-color': 'data(color)',
+      label: 'data(short)', color: c.ink, 'font-family': FONT_FAMILY, 'font-size': FONT_PX,
+      'text-wrap': 'wrap', 'text-max-width': MAX_TEXT_W + 'px', 'text-valign': 'center', 'text-halign': 'center',
+      'min-zoomed-font-size': 5,
+    } },
+    { selector: 'node[shape = "pill"]', style: { 'corner-radius': '999px' } },
+    { selector: 'node[shape = "cut"]', style: { shape: 'cut-rectangle' } },
+    { selector: 'node[shape = "tag"]', style: { shape: 'round-tag', 'text-margin-x': -5 } },
+    { selector: 'node[shape = "rect"]', style: { shape: 'rectangle', 'border-style': 'dashed' } },
+    { selector: 'node[shared > 0]', style: { 'border-width': 3, 'underlay-color': 'data(color)', 'underlay-opacity': 0.18, 'underlay-padding': 4 } },
+    { selector: 'edge', style: {
+      'curve-style': 'bezier', width: 1.5, 'line-color': c.edge, 'target-arrow-color': c.edge, 'target-arrow-shape': 'triangle', 'arrow-scale': 0.9,
+      label: 'data(lbl)', 'font-size': 9, color: c.ink2, 'font-family': FONT_FAMILY, 'text-rotation': 'autorotate',
+      'text-background-color': c.surface, 'text-background-opacity': 1, 'text-background-padding': '2px', 'text-background-shape': 'round-rectangle',
+      'min-zoomed-font-size': 8,
+    } },
+    { selector: 'edge[polarity = "negative"]', style: { 'line-style': 'dashed', 'line-color': c.neg, 'target-arrow-color': c.neg, color: c.neg } },
+    { selector: 'edge.nolabel', style: { 'text-opacity': 0 } },
+    { selector: '.faded', style: { opacity: 0.12 } },
+    { selector: 'node.hit', style: { 'border-color': c.ink, 'border-width': 3, 'underlay-color': c.ink, 'underlay-opacity': 0.12, 'underlay-padding': 5 } },
+    { selector: 'node:selected', style: { 'border-color': c.ink, 'border-width': 3, 'background-color': c.hair } },
+    { selector: 'edge:selected', style: { width: 3, 'line-color': c.ink, 'target-arrow-color': c.ink, color: c.ink } },
+    { selector: '.hidden', style: { display: 'none' } },
+  ];
+}
+const LAYOUT = {
+  name: 'fcose', quality: 'proof', randomize: true, animate: false, fit: false, padding: 30,
+  nodeDimensionsIncludeLabels: true, uniformNodeDimensions: false, packComponents: true,
+  tile: true, tilingPaddingVertical: 14, tilingPaddingHorizontal: 14,
+  nodeRepulsion: 15000, idealEdgeLength: 100, edgeElasticity: 0.3, nestingFactor: 0.1,
+  gravity: 0.25, gravityRange: 3.8, numIter: 2500,
+};
+
+const cy = cytoscape({ container: $('#cy'), style: stylesheet(colors()), wheelSensitivity: 0.3, minZoom: 0.05, maxZoom: 6 });
+if (cy.layoutUtilities) cy.layoutUtilities({ desiredAspectRatio: cy.width() / Math.max(1, cy.height()), componentSpacing: 60 });
+
+function applyTheme() {
+  const c = colors();
+  cy.batch(() => cy.nodes().forEach(n => n.data('color', c.groups[n.data('group')])));
+  cy.style(stylesheet(c));
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+// ---------------------------------------------------------------- Zustand
+let graph = null;           // Antwort von /api/graph
+const typeOn = new Map();   // Typ -> boolean
+const relOn = new Map();    // Relation -> boolean
+
+// Nachlauf zum Layout: überlappende Knotenrechtecke paarweise auseinanderschieben (entlang der Achse mit der
+// geringeren Durchdringung), bis überall mindestens ``margin`` Pixel Abstand sind. fcose lässt bei Nabenknoten
+// (z. B. dem Document-Knoten mit 20+ Kanten) sonst einzelne Überlappungen stehen.
+function removeOverlaps(nodes, margin = 6, maxIter = 200) {
+  const items = nodes.map(n => ({ n, x: n.position('x'), y: n.position('y'), hw: (n.data('w') || n.width()) / 2 + margin / 2, hh: (n.data('h') || n.height()) / 2 + margin / 2 }));
+  const maxHw = Math.max(...items.map(it => it.hw));
+  const pass = () => {
+    items.sort((a, b) => a.x - b.x);
+    let moved = false;
+    for (let i = 0; i < items.length; i++) {
+      const a = items[i];
+      for (let j = i + 1; j < items.length; j++) {
+        const b = items[j];
+        const dx = b.x - a.x;
+        if (dx >= a.hw + maxHw) break; // nach Mittelpunkt-x sortiert: ab hier kann kein (auch breiter) Knoten mehr überlappen
+        const ox = a.hw + b.hw - Math.abs(dx);
+        const dy = b.y - a.y, oy = a.hh + b.hh - Math.abs(dy);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        if (ox < oy) { const s = (dx >= 0 ? 1 : -1) * ox / 2; a.x -= s; b.x += s; }
+        else { const s = (dy >= 0 ? 1 : -1) * oy / 2; a.y -= s; b.y += s; }
+      }
+    }
+    return moved;
+  };
+  for (let iter = 0; iter < maxIter; iter++) {
+    if (!pass()) break;
+    if ((iter + 1) % 25 === 0) { // Stagnation in dichten Clustern: alles um 4 % vom Schwerpunkt weg strecken
+      const cx = items.reduce((s, it) => s + it.x, 0) / items.length, cy0 = items.reduce((s, it) => s + it.y, 0) / items.length;
+      for (const it of items) { it.x = cx + (it.x - cx) * 1.04; it.y = cy0 + (it.y - cy0) * 1.04; }
+    }
+  }
+  cy.batch(() => items.forEach(it => it.n.position({ x: it.x, y: it.y })));
+}
+
+function runLayout() {
+  const eles = cy.elements().not('.hidden');
+  if (!eles.nodes().length) return;
+  setStatus('Layout wird berechnet …');
+  const opts = { ...LAYOUT, packComponents: !!cy.layoutUtilities };
+  const lay = eles.layout(opts);
+  lay.one('layoutstop', () => {
+    removeOverlaps(eles.nodes());
+    eles.nodes().data('placed', 1);
+    cy.fit(eles, 30);
+    setStatus('');
+  });
+  lay.run();
+}
+
+function applyFilters() {
+  const showIso = $('#showIsolated').checked;
+  cy.batch(() => {
+    cy.edges().forEach(e => {
+      const ok = relOn.get(e.data('type')) !== false && typeOn.get(e.source().data('type')) !== false && typeOn.get(e.target().data('type')) !== false;
+      e.toggleClass('hidden', !ok);
+    });
+    cy.nodes().forEach(n => {
+      const ok = typeOn.get(n.data('type')) !== false && (showIso || n.connectedEdges().not('.hidden').length > 0);
+      n.toggleClass('hidden', !ok);
+    });
+  });
+  const visible = cy.elements().not('.hidden');
+  $('#counts').textContent = `sichtbar: ${visible.nodes().length} Knoten · ${visible.edges().length} Kanten`;
+  if (visible.nodes().filter(n => !n.data('placed')).length) runLayout();
+}
+
+// ---------------------------------------------------------------- Laden
+async function loadFiles(paths) {
+  setStatus('lade Graph …');
+  clearSelection();
+  try {
+    graph = await api('/api/graph?' + paths.map(p => 'f=' + encodeURIComponent(p)).join('&'));
+  } catch (err) { setStatus('Fehler: ' + err.message, true); return; }
+  const c = colors();
+  const nodes = graph.nodes.map(n => {
+    const short = shorten(n.label), sz = sizeFor(short), group = groupOf(n.type), shape = GROUP_SHAPE[group];
+    return { group: 'nodes', data: { id: n.id, label: n.label, short, type: n.type, group, shape, color: c.groups[group], docs: n.docs, shared: n.docs.length > 1 ? 1 : 0, degree: n.degree, w: sz.w + SHAPE_EXTRA_W[shape], h: sz.h, occurrences: n.occurrences } };
+  });
+  const edges = graph.edges.map(e => ({ group: 'edges', data: { id: e.id, source: e.source, target: e.target, type: e.type, polarity: e.polarity, lbl: (e.polarity === 'negative' ? 'NICHT ' : '') + e.type, docs: e.docs, occurrences: e.occurrences } }));
+  cy.elements().remove();
+  cy.add([...nodes, ...edges]);
+  cy.edges().toggleClass('nolabel', !$('#showEdgeLabels').checked);
+
+  typeOn.clear(); relOn.clear();
+  for (const t of Object.keys(graph.meta.nodes_by_type)) typeOn.set(t, true);
+  for (const r of Object.keys(graph.meta.edges_by_type)) relOn.set(r, true);
+  renderLegend();
+  const m = graph.meta;
+  $('#loaded').textContent = `${m.files.map(f => f.doc).join(', ')} · ${m.node_ids} Knoten` + (m.shared_nodes ? ` (${m.shared_nodes} in mehreren Handbüchern)` : '') + ` · ${m.edge_count} Kanten`;
+  $('#isoCount').textContent = m.isolated_nodes ? `(${m.isolated_nodes})` : '';
+  applyFilters();
+  setStatus(m.dropped_edges ? `${m.dropped_edges} Kanten ohne Endknoten verworfen` : '');
+}
+
+function renderLegend() {
+  const c = colors();
+  const byType = graph.meta.nodes_by_type;
+  const order = [...Object.keys(GROUPS), 'Sonstige'];
+  let html = '';
+  for (const g of order) {
+    const types = Object.keys(byType).filter(t => groupOf(t) === g).sort((a, b) => byType[b] - byType[a]);
+    if (!types.length) continue;
+    html += `<div class="group">${esc(g)}</div>`;
+    for (const t of types) html += `<label class="row"><input type="checkbox" data-type="${esc(t)}" checked><span class="swatch ${GROUP_SHAPE[g]}" style="color:${c.groups[g]}"></span>${esc(t)}<span class="count">${byType[t]}</span></label>`;
+  }
+  $('#types').innerHTML = html;
+  const rels = graph.meta.edges_by_type;
+  $('#rels').innerHTML = Object.keys(rels).map(r => `<label class="row"><input type="checkbox" data-rel="${esc(r)}" checked>${esc(r)}<span class="count">${rels[r]}</span></label>`).join('') || '<div class="hint">keine Kanten</div>';
+}
+$('#types').addEventListener('change', e => { if (e.target.dataset.type) { typeOn.set(e.target.dataset.type, e.target.checked); applyFilters(); } });
+$('#rels').addEventListener('change', e => { if (e.target.dataset.rel) { relOn.set(e.target.dataset.rel, e.target.checked); applyFilters(); } });
+document.querySelectorAll('button[data-all]').forEach(b => b.addEventListener('click', () => {
+  const on = b.dataset.on === '1', box = b.dataset.all === 'types' ? $('#types') : $('#rels');
+  box.querySelectorAll('input').forEach(i => { i.checked = on; (b.dataset.all === 'types' ? typeOn : relOn).set(i.dataset.type || i.dataset.rel, on); });
+  applyFilters();
+}));
+
+// ---------------------------------------------------------------- Ordnerliste
+async function refreshList() {
+  $('#files').innerHTML = '<div class="hint">lese Ordner …</div>';
+  try {
+    const lst = await api('/api/list');
+    if (!lst.folders.length) { $('#files').innerHTML = `<div class="hint">keine Graph-Dateien unter ${esc(lst.root)}</div>`; return; }
+    $('#files').innerHTML = lst.folders.map(f => `<div class="folder"><div class="name">${esc(f.name)}</div>` + f.files.map(x =>
+      `<label class="row file"><input type="checkbox" value="${esc(x.path)}"> ${esc(x.name)}<span class="meta">${x.nodes} K · ${x.edges} R</span></label>`).join('') + '</div>').join('');
+    $('#files').insertAdjacentHTML('beforeend', '<div class="hint">K = Knoten, R = Relationen. Mehrere Dateien werden zu einem Graphen vereinigt.</div>');
+  } catch (err) { $('#files').innerHTML = `<div class="hint">Fehler: ${esc(err.message)}</div>`; }
+  updateLoadButton();
+}
+function selectedPaths() { return [...document.querySelectorAll('#files input:checked')].map(i => i.value); }
+function updateLoadButton() { $('#load').disabled = selectedPaths().length === 0; }
+$('#files').addEventListener('change', updateLoadButton);
+$('#refresh').addEventListener('click', refreshList);
+$('#load').addEventListener('click', () => loadFiles(selectedPaths()));
+
+// ---------------------------------------------------------------- Ansicht
+$('#showIsolated').addEventListener('change', applyFilters);
+$('#showEdgeLabels').addEventListener('change', e => cy.edges().toggleClass('nolabel', !e.target.checked));
+$('#relayout').addEventListener('click', runLayout);
+$('#fit').addEventListener('click', () => cy.fit(cy.elements().not('.hidden'), 30));
+$('#png').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = cy.png({ full: true, scale: 2, bg: cssVar('--page') });
+  a.download = 'graph.png';
+  a.click();
+});
+
+// ---------------------------------------------------------------- Suche
+$('#search').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  cy.batch(() => { cy.nodes().removeClass('hit'); cy.elements().removeClass('faded'); });
+  if (q.length < 2) { $('#searchinfo').textContent = ''; return; }
+  const hits = cy.nodes().not('.hidden').filter(n => n.data('label').toLowerCase().includes(q) || n.data('occurrences').some(o => (o.aliases || []).some(a => String(a).toLowerCase().includes(q))));
+  cy.batch(() => { cy.elements().addClass('faded'); hits.removeClass('faded'); hits.connectedEdges().not('.hidden').removeClass('faded'); hits.addClass('hit'); });
+  $('#searchinfo').textContent = hits.length ? `${hits.length} Treffer` : 'keine Treffer (unter den sichtbaren Knoten)';
+  if (hits.length && hits.length <= 40) cy.animate({ fit: { eles: hits, padding: 80 } }, { duration: 250 });
+});
+
+// ---------------------------------------------------------------- Auswahl + Detailansicht
+function clearSelection() {
+  cy.batch(() => { cy.elements().removeClass('faded'); cy.elements().unselect(); });
+  $('#detail').hidden = true;
+}
+function select(ele) {
+  cy.batch(() => {
+    cy.elements().unselect(); ele.select();
+    const keep = ele.isNode() ? ele.closedNeighborhood() : ele.connectedNodes().union(ele);
+    cy.elements().addClass('faded'); keep.removeClass('faded');
+  });
+  $('#detail').innerHTML = ele.isNode() ? nodeDetail(ele) : edgeDetail(ele);
+  $('#detail').hidden = false;
+  $('#detail').scrollTop = 0;
+}
+cy.on('tap', 'node', e => select(e.target));
+cy.on('tap', 'edge', e => select(e.target));
+cy.on('tap', e => { if (e.target === cy) clearSelection(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') clearSelection(); });
+
+function kvTable(obj) {
+  const rows = Object.entries(obj || {});
+  if (!rows.length) return '';
+  return '<table class="kv">' + rows.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(typeof v === 'object' ? JSON.stringify(v) : v)}</td></tr>`).join('') + '</table>';
+}
+function provenance(doc, p) {
+  if (!p || !Object.keys(p).length) return '';
+  let h = '<table class="kv">';
+  if (p.pages?.length) h += `<tr><td>Seiten</td><td>${esc(p.pages.join(', '))}</td></tr>`;
+  if (p.heading_breadcrumb?.length) h += `<tr><td>Abschnitt</td><td>${esc(p.heading_breadcrumb.join(' › '))}</td></tr>`;
+  if (p.dom_paths?.length) h += `<tr><td>DoclingDocument</td><td class="mono">${esc(p.dom_paths.join('  '))}</td></tr>`;
+  if (p.table_ref) h += `<tr><td>Tabelle</td><td class="mono">${esc(p.table_ref)}</td></tr>`;
+  if (p.figure_ref) h += `<tr><td>Abbildung</td><td class="mono">${esc(p.figure_ref)}</td></tr>`;
+  if (p.match) h += `<tr><td>Zuordnung</td><td>${esc(p.match)}</td></tr>`;
+  h += '</table>';
+  for (const id of p.chunk_ids || []) h += `<details class="chunk" data-folder="${esc(doc)}" data-chunk="${esc(id)}"><summary>Chunk <span class="mono">${esc(id)}</span> – Text anzeigen</summary><pre class="hint">lade …</pre></details>`;
+  return h;
+}
+function docChips(docs) { return docs.map(d => `<span class="chip">${esc(d)}</span>`).join(''); }
+function nodeDetail(n) {
+  const d = n.data(), color = d.color;
+  let h = `<button class="linkbtn closebtn" onclick="clearSelection()">schließen ✕</button>`;
+  h += `<span class="pill" style="color:${color}">${esc(d.type)}</span><h3>${esc(d.label)}</h3>`;
+  h += `<div>${docChips(d.docs)}</div><div class="mono">${esc(d.id)}</div>`;
+  const multi = d.occurrences.length > 1;
+  d.occurrences.forEach((o, i) => {
+    h += multi ? `<div class="occ"><h4>Vorkommen ${i + 1}: ${esc(o.doc)}</h4>` : '<div>';
+    if (o.label && o.label !== d.label) h += `<div>Label dort: <b>${esc(o.label)}</b></div>`;
+    if (o.aliases?.length) h += `<h4>Aliasse</h4><div>${o.aliases.map(a => `<span class="chip">${esc(a)}</span>`).join('')}</div>`;
+    if (o.attributes && Object.keys(o.attributes).length) h += `<h4>Attribute</h4>${kvTable(o.attributes)}`;
+    if (o.quote) h += `<h4>Beleg</h4><blockquote>${esc(o.quote)}</blockquote>`;
+    const prov = provenance(o.doc, o.provenance);
+    if (prov) h += `<h4>Provenienz</h4>${prov}`;
+    h += '</div>';
+  });
+  const edges = n.connectedEdges().not('.hidden');
+  if (edges.length) {
+    h += `<h4>Nachbarn (${edges.length})</h4><ul class="neigh">`;
+    edges.forEach(e => {
+      const out = e.source().id() === n.id(), other = out ? e.target() : e.source();
+      const rel = (e.data('polarity') === 'negative' ? '<span class="neg">NICHT</span> ' : '') + esc(e.data('type'));
+      h += `<li data-node="${esc(other.id())}"><span class="rel">${out ? '→' : '←'} ${rel}</span><br>${esc(other.data('label'))}</li>`;
+    });
+    h += '</ul>';
+  } else h += '<div class="hint">keine sichtbaren Relationen</div>';
+  return h;
+}
+function edgeDetail(e) {
+  const d = e.data(), s = e.source(), t = e.target(), neg = d.polarity === 'negative';
+  let h = `<button class="linkbtn closebtn" onclick="clearSelection()">schließen ✕</button>`;
+  h += `<h3>${neg ? '<span class="neg">NICHT</span> ' : ''}${esc(d.type)}</h3>`;
+  h += `<ul class="neigh"><li data-node="${esc(s.id())}"><span class="rel">von</span><br>${esc(s.data('label'))}</li><li data-node="${esc(t.id())}"><span class="rel">nach</span><br>${esc(t.data('label'))}</li></ul>`;
+  h += `<div style="margin-top:6px">${docChips(d.docs)}</div>`;
+  if (neg) h += `<div class="hint">Polarität: negativ – die Beziehung wird im Handbuch verneint.</div>`;
+  const multi = d.occurrences.length > 1;
+  d.occurrences.forEach((o, i) => {
+    h += multi ? `<div class="occ"><h4>Vorkommen ${i + 1}: ${esc(o.doc)}</h4>` : '<div>';
+    h += `<div class="mono">Kanten-Id ${esc(o.id)}</div>`;
+    if (o.qualifier) h += `<h4>Qualifier</h4><div>${esc(o.qualifier)}</div>`;
+    if (o.quote) h += `<h4>Beleg</h4><blockquote>${esc(o.quote)}</blockquote>`;
+    if (o.properties && Object.keys(o.properties).length) h += `<h4>Eigenschaften</h4>${kvTable(o.properties)}`;
+    const prov = provenance(o.doc, o.provenance);
+    if (prov) h += `<h4>Provenienz</h4>${prov}`;
+    h += '</div>';
+  });
+  return h;
+}
+$('#detail').addEventListener('click', e => {
+  const li = e.target.closest('li[data-node]');
+  if (li) { const n = cy.getElementById(li.dataset.node); if (n.length) { select(n); cy.animate({ center: { eles: n } }, { duration: 250 }); } }
+});
+$('#detail').addEventListener('toggle', async e => {
+  const det = e.target;
+  if (!(det instanceof HTMLDetailsElement) || !det.open || det.dataset.loaded) return;
+  det.dataset.loaded = '1';
+  const pre = det.querySelector('pre');
+  try {
+    const c = await chunkText(det.dataset.folder, det.dataset.chunk);
+    if (!c) { pre.textContent = 'Chunk nicht gefunden (chunks.json / response.json fehlt im Ordner?)'; return; }
+    const head = [c.kind, c.page_numbers?.length ? 'Seite ' + c.page_numbers.join(', ') : '', c.heading_breadcrumb?.length ? c.heading_breadcrumb.join(' › ') : ''].filter(Boolean).join(' · ');
+    pre.className = '';
+    pre.textContent = (head ? head + '\n\n' : '') + (c.caption ? c.caption + '\n\n' : '') + (c.text || '');
+  } catch (err) { pre.textContent = 'Fehler: ' + err.message; }
+}, true);
+
+refreshList();
+</script>
+</body>
+</html>

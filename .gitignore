@@ -34,3 +34,4 @@ SPEC.md
 /database_comparison/__pycache__/
 /opensearch-pruefstand/.env
 /opensearch-pruefstand/.ipynb_checkpoints/
+/graph-viewer/__pycache__/
