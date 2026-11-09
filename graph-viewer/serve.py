@@ -7,14 +7,20 @@ eine gezeichnete Kante pro ``(source, target, type, polarity)`` mit allen Vorkom
 für die Provenienz nach.
 
 Start:  python3 graph-viewer/serve.py [--port 8010] [--root out]
-Aufruf: http://localhost:8010/  bzw.  http://<vm-ip>:8010/
+Aufruf: http://localhost:8010/  (auf einem anderen Rechner: ssh -N -L 8010:localhost:8010 <user>@<rechner>)
+
+Schutz: bindet standardmäßig nur an 127.0.0.1; Anfragen mit fremdem Host-Header werden abgewiesen (DNS-Rebinding);
+die Seite kommt mit einer Content-Security-Policy, die nur Skripte von diesem Server und das Inline-Skript von
+``index.html`` (per Hash) zulässt.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
+import re
 import sys
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -27,6 +33,9 @@ VENDOR = HERE / "vendor"
 MAX_JSON_BYTES = 64 * 1024 * 1024  # größere JSON-Dateien werden beim Scannen übersprungen
 SCAN_DEPTH = 2  # out/<lauf>/graph.json (1) oder out/<charge>/<lauf>/graph.json (2)
 CHUNK_FIELDS = ("chunk_id", "text", "heading_breadcrumb", "page_numbers", "kind", "caption", "dom_paths")
+LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+WILDCARD_BINDS = ("0.0.0.0", "::", "")
+INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.S)  # nur Skripte ohne Attribute (die mit src= sind 'self')
 
 
 # --------------------------------------------------------------------------- Graphen lesen
@@ -222,19 +231,67 @@ def load_chunks(root: Path, folder: str, ids: list[str]) -> list[dict[str, Any]]
     return out
 
 
+# --------------------------------------------------------------------------- Schutz
+
+
+def host_name(header: str | None) -> str:
+    """Host-Name aus dem Host-Header, ohne Port: ``localhost:8010`` -> ``localhost``, ``[::1]:8010`` -> ``::1``."""
+    h = (header or "").strip().lower()
+    if h.startswith("["):
+        return h[1 : h.index("]")] if "]" in h else h
+    return h.rsplit(":", 1)[0] if h.count(":") == 1 else h
+
+
+def allowed_hosts(bind: str, extra: list[str]) -> frozenset[str]:
+    """Erlaubte Host-Header: lokal, die Bind-Adresse (falls konkret) und alles aus ``--allow-host``."""
+    names = set(LOCAL_HOSTS) | {e.strip().lower().strip("[]") for e in extra if e.strip()}
+    if bind not in WILDCARD_BINDS:
+        names.add(bind.lower())
+    return frozenset(names)
+
+
+def csp_for(html: str) -> str:
+    """Content-Security-Policy für ``index.html``. Der Hash des Inline-Skripts wird bei jedem Aufruf neu berechnet,
+    Änderungen an der Seite brauchen also keinen Neustart. Inline-Styles bleiben erlaubt (``style=""`` in der
+    Detailspalte; alle Werte darin sind escaped), Inline-Event-Handler (``onclick=``) nicht."""
+    html = html.replace("\r\n", "\n").replace("\r", "\n")  # der HTML-Parser normalisiert Zeilenenden vor dem Hashen
+    hashes = [
+        "'sha256-" + base64.b64encode(hashlib.sha256(body.encode("utf-8")).digest()).decode() + "'"
+        for body in INLINE_SCRIPT.findall(html)
+    ]
+    return "; ".join(
+        [
+            "default-src 'none'",
+            " ".join(["script-src 'self'", *hashes]),
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: blob:",
+            "connect-src 'self'",
+            "base-uri 'none'",
+            "form-action 'none'",
+            "frame-ancestors 'none'",
+        ]
+    )
+
+
 # --------------------------------------------------------------------------- HTTP
 
 
 class Handler(BaseHTTPRequestHandler):
     root: Path = HERE.parent / "out"
+    allowed: frozenset[str] = LOCAL_HOSTS
     server_version = "GraphViewer/1.0"
 
     def do_GET(self) -> None:  # noqa: N802 (http.server-Konvention)
+        if host_name(self.headers.get("Host")) not in self.allowed:
+            self._error(403, "Host nicht erlaubt (Schutz gegen DNS-Rebinding); weitere Namen mit --allow-host freigeben")
+            return
         u = urlsplit(self.path)
         q = parse_qs(u.query)
         try:
             if u.path in ("/", "/index.html"):
-                self._file(HERE / "index.html", "text/html; charset=utf-8")
+                html = (HERE / "index.html").read_bytes()
+                csp = csp_for(html.decode("utf-8"))
+                self._send(200, html, "text/html; charset=utf-8", {"Content-Security-Policy": csp})
             elif u.path.startswith("/vendor/"):
                 f = VENDOR / Path(u.path).name
                 if f.is_file():
@@ -262,11 +319,15 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError as exc:
             self._error(400, str(exc))
 
-    def _send(self, status: int, body: bytes, ctype: str) -> None:
+    def _send(self, status: int, body: bytes, ctype: str, extra: dict[str, str] | None = None) -> None:
         self.send_response(status)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
         self.end_headers()
         try:
             self.wfile.write(body)
@@ -289,7 +350,11 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Graph-Viewer über den Laufordnern (graph.json / response.json).")
     ap.add_argument("--port", type=int, default=8010)
-    ap.add_argument("--host", default="0.0.0.0", help="Bind-Adresse (Standard: alle Schnittstellen, für Zugriff von außen)")
+    ap.add_argument("--host", default="127.0.0.1",
+                    help="Bind-Adresse (Standard: nur lokal, von anderen Rechnern per SSH-Tunnel). "
+                         "0.0.0.0 = alle Schnittstellen, ohne Anmeldung und unverschlüsselt")
+    ap.add_argument("--allow-host", action="append", default=[], metavar="NAME",
+                    help="weiterer erlaubter Host-Name/IP im Host-Header, z. B. die IP der VM bei --host 0.0.0.0 (wiederholbar)")
     ap.add_argument("--root", type=Path, default=HERE.parent / "out", help="Verzeichnis mit den Laufordnern (Standard: ../out)")
     a = ap.parse_args(argv)
     root = a.root.resolve()
@@ -297,8 +362,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Wurzelverzeichnis fehlt: {root}", file=sys.stderr)
         return 2
     Handler.root = root
+    Handler.allowed = allowed_hosts(a.host, a.allow_host)
     srv = ThreadingHTTPServer((a.host, a.port), Handler)
-    print(f"Graph-Viewer läuft: http://localhost:{a.port}/   Wurzel: {root}   (Beenden mit Strg+C)", flush=True)
+    shown = "localhost" if a.host in WILDCARD_BINDS or a.host.lower() in LOCAL_HOSTS else a.host
+    print(f"Graph-Viewer läuft: http://{shown}:{a.port}/   Wurzel: {root}   (Beenden mit Strg+C)", flush=True)
+    if a.host in WILDCARD_BINDS:
+        print(f"Achtung: lauscht auf allen Schnittstellen, ohne Anmeldung. Erlaubte Host-Namen: {', '.join(sorted(Handler.allowed))}",
+              file=sys.stderr, flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

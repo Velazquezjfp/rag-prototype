@@ -453,7 +453,7 @@ function provenance(doc, p) {
 function docChips(docs) { return docs.map(d => `<span class="chip">${esc(d)}</span>`).join(''); }
 function nodeDetail(n) {
   const d = n.data(), color = d.color;
-  let h = `<button class="linkbtn closebtn" onclick="clearSelection()">schließen ✕</button>`;
+  let h = `<button class="linkbtn closebtn" type="button">schließen ✕</button>`;
   h += `<span class="pill" style="color:${color}">${esc(d.type)}</span><h3>${esc(d.label)}</h3>`;
   h += `<div>${docChips(d.docs)}</div><div class="mono">${esc(d.id)}</div>`;
   const multi = d.occurrences.length > 1;
@@ -481,7 +481,7 @@ function nodeDetail(n) {
 }
 function edgeDetail(e) {
   const d = e.data(), s = e.source(), t = e.target(), neg = d.polarity === 'negative';
-  let h = `<button class="linkbtn closebtn" onclick="clearSelection()">schließen ✕</button>`;
+  let h = `<button class="linkbtn closebtn" type="button">schließen ✕</button>`;
   h += `<h3>${neg ? '<span class="neg">NICHT</span> ' : ''}${esc(d.type)}</h3>`;
   h += `<ul class="neigh"><li data-node="${esc(s.id())}"><span class="rel">von</span><br>${esc(s.data('label'))}</li><li data-node="${esc(t.id())}"><span class="rel">nach</span><br>${esc(t.data('label'))}</li></ul>`;
   h += `<div style="margin-top:6px">${docChips(d.docs)}</div>`;
@@ -500,6 +500,7 @@ function edgeDetail(e) {
   return h;
 }
 $('#detail').addEventListener('click', e => {
+  if (e.target.closest('.closebtn')) { clearSelection(); return; } // kein onclick="": die CSP verbietet Inline-Handler
   const li = e.target.closest('li[data-node]');
   if (li) { const n = cy.getElementById(li.dataset.node); if (n.length) { select(n); cy.animate({ center: { eles: n } }, { duration: 250 }); } }
 });
