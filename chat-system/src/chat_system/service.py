@@ -34,15 +34,40 @@ from .settings import Settings
 
 log = logging.getLogger(__name__)
 
-RefusalReason = Literal["daily_cap", "turn_cap", "forbidden", "busy"]
+RefusalReason = Literal["daily_cap", "turn_cap", "forbidden", "busy", "context_limit"]
 
 BUSY_TEXT_DE = "Gerade sind zu viele Anfragen gleichzeitig in Arbeit. Bitte in einem Moment noch einmal senden."
 ERROR_TEXT_DE = "Die Antwort konnte nicht erzeugt werden (Fehler beim Sprachmodell). Die Nachricht wurde nicht gezählt."
 FORBIDDEN_CONVERSATION_DE = "Dieses Gespräch gehört einem anderen Benutzer."
+CONTEXT_LIMIT_TEXT_DE = (
+    "Kontextlimit erreicht: Der Text ist zu lang für das Sprachmodell. "
+    "Bitte ein neues Gespräch beginnen oder die Eingabe kürzen. Die Nachricht wurde nicht gezählt."
+)
+
+# How OpenAI-compatible servers (vLLM, LiteLLM, Ollama, OpenAI) word "the prompt does not fit the model's context".
+_CONTEXT_LIMIT_MARKERS = (
+    "context length",
+    "context_length",
+    "context window",
+    "contextwindow",
+    "maximum context",
+    "too many tokens",
+    "prompt is too long",
+    "prompt too long",
+    "input is too long",
+    "exceeds the available context",
+    "reduce the length",
+)
+
+
+def is_context_limit_error(exc: BaseException) -> bool:
+    """True when the model refused the request because prompt + answer do not fit its context window."""
+    text = str(exc).lower()
+    return getattr(exc, "status", None) == 413 or any(marker in text for marker in _CONTEXT_LIMIT_MARKERS)
 
 
 class TurnRefused(Exception):
-    def __init__(self, reason: RefusalReason, message_de: str, remaining_today: int) -> None:
+    def __init__(self, reason: RefusalReason, message_de: str, remaining_today: int | None) -> None:
         super().__init__(f"{reason}: {message_de}")
         self.reason = reason
         self.message_de = message_de
@@ -52,12 +77,12 @@ class TurnRefused(Exception):
 @dataclass(frozen=True)
 class Quota:
     used_today: int
-    daily_cap: int
+    daily_cap: int | None  # None = no daily limit
     max_turns: int
 
     @property
-    def remaining_today(self) -> int:
-        return max(0, self.daily_cap - self.used_today)
+    def remaining_today(self) -> int | None:
+        return None if self.daily_cap is None else max(0, self.daily_cap - self.used_today)
 
 
 @dataclass
@@ -74,7 +99,7 @@ class TurnResult:
     use_graph: bool
     finish_reason: str | None
     latency_ms: int | None
-    remaining_today: int
+    remaining_today: int | None  # None = no daily limit
     turns_left: int
 
 
@@ -268,6 +293,12 @@ class TurnStream:
             raise
         except Exception as exc:  # noqa: BLE001 - the model failed: persist, refund, tell the caller
             log.warning("LLM stream failed for conversation %s: %s", t.conversation_id, exc)
+            if not self._text and is_context_limit_error(exc):
+                # the prompt does not fit the model: no crash, a clear answer, and the conversation is closed
+                self._text.append(CONTEXT_LIMIT_TEXT_DE)
+                yield CONTEXT_LIMIT_TEXT_DE
+                self._finish("context_limit", error=exc)
+                return
             self._finish("error", error=exc)
             raise
         self.analysis = getattr(it, "analysis", None)
@@ -300,7 +331,7 @@ class TurnStream:
             use_graph=t.use_graph,
             finish_reason=self.finish_reason,
             latency_ms=self.diagnostics["timings_ms"].get("total"),
-            remaining_today=max(0, limits.daily_messages - t.used_today),
+            remaining_today=None if limits.daily_messages is None else max(0, limits.daily_messages - t.used_today),
             turns_left=max(0, limits.max_turns_per_conversation - (t.turns_in_conversation + 1)),
         )
 
@@ -316,7 +347,7 @@ class TurnStream:
         svc = self._svc
         try:
             content = self.answer
-            if reason == "error":
+            if reason in ("error", "context_limit"):
                 content = content or ERROR_TEXT_DE
                 svc.repo.usage().increment(t.ctx.user_id, svc.today(), by=-1)
                 t.used_today = max(0, t.used_today - 1)
@@ -336,7 +367,7 @@ class TurnStream:
                 latency_ms=diagnostics["timings_ms"].get("total"),
             )
             self.message_id = row.id
-            if t.turns_in_conversation + 1 >= t.decision.limits.max_turns_per_conversation:
+            if reason == "context_limit" or t.turns_in_conversation + 1 >= t.decision.limits.max_turns_per_conversation:
                 svc.repo.mark_capped(t.conversation_id)
         finally:
             svc.release()
@@ -508,6 +539,8 @@ class ChatService:
                 prompt_chars = sum(len(m["content"]) for m in messages)
         except BaseException as exc:
             self._fail_before_stream(ctx, conversation_id, use_graph, exc, today, reserved=reserved)
+            if is_context_limit_error(exc):
+                raise TurnRefused("context_limit", CONTEXT_LIMIT_TEXT_DE, decision.remaining_today) from exc
             raise
 
         turn = _Turn(
@@ -536,20 +569,23 @@ class ChatService:
     ) -> None:
         """Retrieval/prompt failed: if the slot was reserved, keep the user's message, add an error row and refund."""
         log.warning("turn failed before streaming for %s: %s", conversation_id, exc)
+        context_limit = is_context_limit_error(exc)
         try:
             if reserved:
                 self.repo.usage().increment(ctx.user_id, today, by=-1)
                 self.repo.add_assistant_message(
                     conversation_id,
-                    ERROR_TEXT_DE,
+                    CONTEXT_LIMIT_TEXT_DE if context_limit else ERROR_TEXT_DE,
                     question_rewritten=None,
                     use_graph=use_graph,
                     citations=[],
                     diagnostics={"error": str(exc)[:500], "llm_called": False},
                     guardrail=False,
-                    finish_reason="error",
+                    finish_reason="context_limit" if context_limit else "error",
                     model=None,
                     latency_ms=None,
                 )
+                if context_limit:
+                    self.repo.mark_capped(conversation_id)
         finally:
             self.release()

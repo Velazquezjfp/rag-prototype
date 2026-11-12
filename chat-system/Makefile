@@ -43,7 +43,7 @@ db-current:
 run:                         ## the UI: http://127.0.0.1:8501 (CHAT_BIND/CHAT_PORT to change)
 	.venv/bin/streamlit run app.py --server.address $(CHAT_BIND) --server.port $(CHAT_PORT)
 
-ask:                         ## make ask Q="Was war bei ZSDSUP-0247?" ARGS="--no-graph --user rita.read"
+ask:                         ## make ask Q="Was war bei ZSDSUP-0247?" ARGS="--no-graph --user dev"
 	.venv/bin/chat-ask "$(Q)" $(ARGS)
 
 smoke:                       ## the smoke questions of scripts/smoke_questions.txt through chat-ask (needs the live stack)

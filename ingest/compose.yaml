@@ -1,0 +1,31 @@
+# ingest-service as a container on the dev box / a server with tunnels: host networking, so OpenSearch (:9200) and
+# docling-graph-service (:8080) on the host loopback are reachable. One .env (INGEST__* and OSI__*) drives it.
+#
+#   docker compose up -d --build      API on http://127.0.0.1:8090 (Swagger: /docs)
+services:
+  ingest:
+    build:
+      context: ..
+      dockerfile: ingest/Dockerfile
+      args:
+        BASE_IMAGE: ${BASE_IMAGE:-python:3.12-slim}
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+        http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
+        https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
+        no_proxy: ${no_proxy:-${NO_PROXY:-}}
+    image: ${INGEST_IMAGE:-ingest-service:local}
+    env_file: .env
+    environment:
+      INGEST__ONTOLOGIES: '{"bhb": "/ontology/ontology.yaml"}'
+      OSI__ONTOLOGY__PATH: /ontology/ontology.yaml     # the osi command in the container needs it (osi status, osi bootstrap)
+    volumes:
+      - ${ONTOLOGY_DIR:-../user-manual-books/handbuch_daten/Ontologie}:/ontology:ro${SELINUX_LABEL:-}
+    network_mode: host
+    read_only: true
+    tmpfs: [/tmp]
+    command: ["uvicorn", "--factory", "ingest_service.api:create_app", "--host", "${INGEST_BIND:-127.0.0.1}", "--port", "${INGEST_PORT:-8090}"]
+    restart: unless-stopped

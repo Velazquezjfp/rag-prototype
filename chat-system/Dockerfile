@@ -2,6 +2,9 @@
 # Build context is the REPOSITORY ROOT (compose: context: .., dockerfile: chat-system/Dockerfile), so the four module
 # folders can be copied. Root .dockerignore keeps venvs, data, .env, tests and the corpus out of the context.
 #
+# Kubernetes/OpenShift ready: runs under any user id (group 0) on a read-only root filesystem; the writable paths
+# are /tmp and /app/chat-system/data (SQLite). No apt step: the build needs only the base image and a Python index.
+#
 # Local build:      cd chat-system && docker compose --profile local build
 # Enterprise build: BASE_IMAGE / PIP_INDEX_URL / PIP_TRUSTED_HOST / proxies from .env (see .env.example)
 ARG BASE_IMAGE=python:3.12-slim
@@ -19,9 +22,6 @@ ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
     STREAMLIT_SERVER_FILE_WATCHER_TYPE=none \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
     STREAMLIT_CLIENT_TOOLBAR_MODE=viewer
-
-# curl for the HEALTHCHECK (python:3.12-slim has none)
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 # 1. third-party dependencies: the union of the four pyproject dependency lists (layer survives source edits)
@@ -50,10 +50,16 @@ RUN pip install --no-deps ./opensearch-index ./users ./retrieval ./chat-system
 ENV RAG_CONFIG=/app/retrieval/config.yaml \
     OSI_CONFIG=/app/opensearch-index/config.yaml
 
-RUN useradd --create-home --uid 10001 chat && mkdir -p /app/chat-system/data && chown -R chat /app
-USER chat
+# Nothing is written to the home or the root filesystem at runtime: HOME=/tmp (an emptyDir in Kubernetes), the
+# database lives in ./data. Any user id works (OpenShift assigns a random one in group 0): ./data is group-0 writable.
+ENV HOME=/tmp \
+    PYTHONDONTWRITEBYTECODE=1
+RUN useradd --no-create-home --uid 10001 --gid 0 chat && mkdir -p /app/chat-system/data \
+    && chown -R 10001:0 /app/chat-system/data && chmod -R g=u /app/chat-system/data && chmod -R a+rX /app
+USER 10001:0
 WORKDIR /app/chat-system
 VOLUME ["/app/chat-system/data"]
 EXPOSE 8501
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s CMD curl -fsS http://localhost:8501/_stcore/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=4)" || exit 1
 ENTRYPOINT ["streamlit", "run", "app.py"]

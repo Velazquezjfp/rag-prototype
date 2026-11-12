@@ -1,0 +1,35 @@
+# opensearch-index defaults. Every key is overridable via environment variables:
+#   OSI__<SECTION>__<KEY>, e.g. OSI__OPENSEARCH__URL=https://search.internal:9200  OSI__EMBEDDING__DIM=1024
+# Secrets (password) belong in the environment / .env (see .env.example), not in this file.
+
+opensearch:                            # the cluster; https:// in the URL enables TLS, username enables basic auth
+  url: http://localhost:9200           # compose node on this machine (security plugin off)
+  username: null
+  password: null
+  verify_certs: true                   # false only for the demo certificates of a security-enabled node
+  ca_certs: null                       # PEM bundle of the enterprise CA when verify_certs is true
+  timeout_s: 60
+  max_retries: 3
+
+index:
+  prefix: bhb                          # indices bhb-chunks / bhb-nodes / bhb-documents / bhb-manifest (aliases over *-v1)
+  shards: 1
+  replicas: 0                          # 1 on a multi-node managed cluster
+  knn_m: 16                            # lucene HNSW graph degree
+  knn_ef_construction: 128
+  rrf_pipeline: true                   # create the bhb-rrf search pipeline at bootstrap (server >= 2.19)
+  rrf_rank_constant: 60
+
+embedding:                             # what produced chunk.embedding in the ingested runs (dgs DGS__EMBEDDING__*)
+  model: bge-m3                        # recorded on every chunk; the response itself does not name its model
+  dim: 1024                            # knn_vector dimension; a mismatch refuses to index
+  text_prefix: ""                      # "passage: " for multilingual-e5-large - recorded, so query time knows the prefix
+
+ontology:
+  path: ../user-manual-books/handbuch_daten/Ontologie/ontology.yaml   # identifier regexes, identity keys, meta.documents
+
+ingest:
+  bulk_size: 200                       # documents per bulk request (~10 KB per embedded chunk)
+  lock_ttl_s: 3600                     # an "indexing" manifest older than this may be taken over
+  request_timeout_s: 120
+  history_keep: 20                     # previous runs kept in the manifest

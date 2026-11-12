@@ -32,7 +32,7 @@ def build_engine(settings: Settings | None = None) -> Any:
 
 def build_service(settings: Settings | None = None, *, engine: Any | None = None) -> ChatService:
     from rag_retrieval import ChatClient, Retriever
-    from rag_users import Policy
+    from rag_users import get_policy
 
     from .catalog import Catalog
 
@@ -51,5 +51,5 @@ def build_service(settings: Settings | None = None, *, engine: Any | None = None
         rag.llm.model,
     )
     return ChatService(
-        repo, Policy(), retriever, llm, settings, rag_settings=rag, catalog=catalog.list_documents
+        repo, get_policy(), retriever, llm, settings, rag_settings=rag, catalog=catalog.list_documents
     )

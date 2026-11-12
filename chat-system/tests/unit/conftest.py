@@ -23,7 +23,7 @@ from rag_retrieval import (
     GraphFact,
     RetrievalResult,
 )
-from rag_users import USERS, AuthContext, GroupLimits, Policy
+from rag_users import AuthContext, GroupLimits, Policy
 from sqlalchemy import text
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +38,25 @@ from chat_system.settings import Settings  # noqa: E402
 ZSD = "BHB-PLT-0007"
 CAAS = "BHB-PLT-0001"
 TODAY = date(2026, 9, 4)
+
+# Test data for the Policy machinery (group rules, daily cap, manual allowlist). The app itself uses none of it:
+# rag_users.get_policy() gives every user the same limits (test_context_limit.py and test_ui_smoke.py cover that path).
+TEST_RULES = {
+    "admin": GroupLimits(daily_messages=100, max_turns_per_conversation=20, allowed_doc_ids=None),
+    "bavd-ops": GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None),
+    "bavd-readonly": GroupLimits(daily_messages=5, max_turns_per_conversation=5, allowed_doc_ids=("BHB-PLT-0007",)),
+}
+TEST_DEFAULT = GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None)
+USERS = {
+    "dev": AuthContext(user_id="dev", email="dev@localhost"),
+    "otto.ops": AuthContext(user_id="otto.ops", email="otto.ops@bavd.example", groups=("bavd-ops",)),
+    "rita.read": AuthContext(user_id="rita.read", email="rita.read@bavd.example", groups=("bavd-readonly",)),
+    "anna.admin": AuthContext(user_id="anna.admin", email="anna.admin@bavd.example", groups=("admin", "bavd-ops")),
+}
+
+
+def rules_policy() -> Policy:
+    return Policy(TEST_RULES, default=TEST_DEFAULT)
 NOW = datetime(2026, 9, 4, 12, 0, tzinfo=UTC)
 
 
@@ -232,7 +251,7 @@ def llm() -> FakeLLM:
 
 @pytest.fixture
 def policy() -> Policy:
-    return Policy()
+    return rules_policy()
 
 
 @pytest.fixture
@@ -243,7 +262,7 @@ def service(repo, policy, retriever, llm, settings, clock) -> ChatService:
 def make_service(repo, *, retriever=None, llm=None, settings=None, policy=None, clock=None, catalog=None, profile=None) -> ChatService:
     return ChatService(
         repo,
-        policy or Policy(),
+        policy or rules_policy(),
         retriever or FakeRetriever(),
         llm or FakeLLM(),
         settings or Settings(_env_file=None, db={"url": "sqlite://"}),

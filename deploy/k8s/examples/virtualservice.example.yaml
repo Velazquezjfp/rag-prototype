@@ -1,0 +1,14 @@
+# BEISPIEL, wird nicht automatisch angewendet. PRÜFEN: Name des Gateways, Hostnamen, ob VirtualService oder Route.
+# Der Chat ist nur über den Auth-Proxy (PAG) erreichbar - dessen Chart legt den Zugang an, Ziel: Service chat:8501.
+# Die Ingest-API hat keinen Auth-Proxy davor (nur X-API-Key) - das ist ein offener Punkt (docs/OFFENE-PUNKTE.md).
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: ingest
+spec:
+  hosts: ["INGEST_HOST"]
+  gateways: ["GATEWAY_NAMESPACE/GATEWAY_NAME"]
+  http:
+    - route:
+        - destination: {host: ingest, port: {number: 8090}}
+      timeout: 3600s        # ein Aufruf läuft, bis das Buch indexiert ist (Minuten)

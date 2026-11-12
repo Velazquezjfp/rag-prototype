@@ -23,6 +23,6 @@ def main() -> None:
     st.set_page_config(page_title=settings.ui.title, page_icon="📘", layout="wide")
     st.title(settings.ui.title)
     svc = get_service()
-    ctx = auth.resolve(settings, users_settings())
+    ctx = auth.resolve(users_settings())
     state = sidebar.render(svc, ctx, settings)
     chat.render(svc, ctx, settings, state)

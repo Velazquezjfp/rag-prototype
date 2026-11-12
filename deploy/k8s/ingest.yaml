@@ -1,0 +1,60 @@
+# Ingest: API (X-API-Key) -> docling-graph-service -> Indexer -> OpenSearch (schreibend). Hält nichts auf Platte.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingest
+  labels: {app.kubernetes.io/name: ingest}
+spec:
+  replicas: 1                                      # ein Dokument zur Zeit; Jobliste liegt im Speicher des Pods
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: ingest}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: ingest}
+      annotations:
+        sidecar.istio.io/inject: "true"            # PRÜFEN: wie beim Chat
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: ingest
+          image: ingest-service
+          ports: [{name: http, containerPort: 8090}]
+          envFrom:
+            - configMapRef: {name: ingest-config}
+            - secretRef: {name: ingest-secrets}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 768Mi}       # ein 50-MB-PDF liegt kurz dreifach im Speicher
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: ontology, mountPath: /ontology, readOnly: true}
+            # - {name: opensearch-ca, mountPath: /ca, readOnly: true}   # mit OSI__OPENSEARCH__CA_CERTS=/ca/ca.crt
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+        - {name: ontology, configMap: {name: bhb-ontology}}
+        # - {name: opensearch-ca, configMap: {name: opensearch-ca}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingest
+  labels: {app.kubernetes.io/name: ingest}
+spec:
+  selector: {app.kubernetes.io/name: ingest}
+  ports: [{name: http, port: 8090, targetPort: http}]

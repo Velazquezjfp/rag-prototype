@@ -1,9 +1,8 @@
 SPEC.md
-/docs
 /docling-graph
 /venv-rag
 /.claude
-/opensearch-index
+/.pytest_cache
 /chat-system/.venv/
 /chat-system/.env
 /chat-system/data/
@@ -35,3 +34,14 @@ SPEC.md
 /opensearch-pruefstand/.env
 /opensearch-pruefstand/.ipynb_checkpoints/
 /graph-viewer/__pycache__/
+/ingest/.venv/
+/ingest/.env
+/ingest/.pytest_cache/
+/ingest/.ruff_cache/
+/ingest/**/__pycache__/
+/opensearch-index/.venv/
+/opensearch-index/.env
+/opensearch-index/data/
+/opensearch-index/.pytest_cache/
+/opensearch-index/.ruff_cache/
+/opensearch-index/**/__pycache__/

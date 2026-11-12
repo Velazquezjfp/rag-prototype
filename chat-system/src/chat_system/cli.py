@@ -30,7 +30,7 @@ def _logging(level: str) -> None:
 def ask(
     question: str = typer.Argument(..., help="Die Frage (Deutsch)."),
     graph: bool = typer.Option(True, "--graph/--no-graph", help="slow mode with graph expansion / fast mode"),
-    user: str = typer.Option("dev", "--user", help="mock user id (rag_users.USERS)"),
+    user: str = typer.Option("dev", "--user", help="mock user id (any name; conversations are stored per user)"),
     conversation: str | None = typer.Option(None, "--conversation", help="continue this conversation id"),
     doc_id: list[str] = typer.Option([], "--doc-id", help="restrict to these manuals (repeatable)"),
     json_out: bool = typer.Option(False, "--json", help="print the TurnResult as JSON instead of streaming"),
@@ -90,7 +90,8 @@ def ask(
         extra += f" · Einordnung: {a.get('task')} / {'innerhalb' if a.get('in_scope', True) else 'außerhalb'}" + (f" / {a['systems']}" if a.get("systems") else "")
     typer.echo(
         f"\n[{res.finish_reason} · {res.latency_ms} ms · Modus {res.diagnostics.get('mode')} · Profil {res.diagnostics.get('profile')} · guardrail={res.guardrail}{extra} · "
-        f"heute noch {res.remaining_today} Nachricht(en) · noch {res.turns_left} Runde(n) in diesem Gespräch]",
+        + (f"heute noch {res.remaining_today} Nachricht(en) · " if res.remaining_today is not None else "")
+        + f"noch {res.turns_left} Runde(n) in diesem Gespräch]",
         err=True,
     )
 
@@ -154,7 +155,7 @@ def doctor(json_out: bool = typer.Option(False, "--json"), log_level: str = type
 
 
 def run_doctor() -> dict[str, Any]:
-    from rag_users import Policy, Unauthenticated, get_adapter
+    from rag_users import Unauthenticated, get_adapter, get_policy
     from rag_users import get_settings as users_settings
 
     from .db import current_revision, head_revision, make_engine
@@ -221,14 +222,13 @@ def run_doctor() -> dict[str, Any]:
     # users
     try:
         us = users_settings()
+        lim = get_policy(us).default
+        limits = f"{'no daily limit' if lim.daily_messages is None else f'{lim.daily_messages}/day'}, {lim.max_turns_per_conversation} turns per conversation, all manuals"
         if us.adapter == "env":
             ctx = get_adapter(us).current()
-            lim = Policy().limits_for(ctx)
-            add("users", "ok", f"adapter env -> {ctx.user_id} {list(ctx.groups)}: {lim.daily_messages}/day, {lim.max_turns_per_conversation} turns, manuals {lim.allowed_doc_ids or 'all'}")
+            add("users", "ok", f"adapter env -> one mock user {ctx.user_id!r}: {limits}")
         else:
-            add("users", "ok", f"adapter header ({us.header_user}/{us.header_email}/{us.header_groups}); identity comes from the ingress")
-        if s.ui.allow_user_switch and us.adapter == "header":
-            add("users", "warn", "CHAT__UI__ALLOW_USER_SWITCH=true is ignored with the header adapter")
+            add("users", "ok", f"adapter header ({us.header_user}/{us.header_email}/{us.header_groups}); identity comes from the ingress: {limits}")
     except Unauthenticated as exc:
         add("users", "fail", str(exc))
     except Exception as exc:  # noqa: BLE001

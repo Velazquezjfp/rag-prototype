@@ -1,0 +1,65 @@
+# Chat: Streamlit-Oberfläche, SQLite, Suche (OpenSearch lesend), Sprachmodell. Ein Replikat (SQLite im Pod).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chat
+  labels: {app.kubernetes.io/name: chat}
+spec:
+  replicas: 1                                      # nicht erhöhen: SQLite und Zähler liegen im Pod
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: chat}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: chat}
+      annotations:
+        sidecar.istio.io/inject: "true"            # PRÜFEN: so verlangt es das Service Mesh?
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true                         # OpenShift vergibt die Benutzer-ID selbst (Gruppe 0)
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: chat
+          image: chat-system
+          ports: [{name: http, containerPort: 8501}]
+          envFrom:
+            - configMapRef: {name: chat-config}
+            - secretRef: {name: chat-secrets}
+          resources:
+            requests: {cpu: 250m, memory: 512Mi}
+            limits: {cpu: "1", memory: 1Gi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          startupProbe:
+            httpGet: {path: /_stcore/health, port: http}
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet: {path: /_stcore/health, port: http}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /_stcore/health, port: http}
+            periodSeconds: 30
+            timeoutSeconds: 5
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: data, mountPath: /app/chat-system/data}
+            - {name: ontology, mountPath: /ontology, readOnly: true}
+            # - {name: opensearch-ca, mountPath: /ca, readOnly: true}   # mit RAG__OPENSEARCH__CA_CERTS=/ca/ca.crt
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+        - {name: data, emptyDir: {sizeLimit: 1Gi}}   # Gespräche gehen bei jedem Neustart verloren (Testphase)
+        - {name: ontology, configMap: {name: bhb-ontology}}
+        # - {name: opensearch-ca, configMap: {name: opensearch-ca}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chat
+  labels: {app.kubernetes.io/name: chat}
+spec:
+  selector: {app.kubernetes.io/name: chat}
+  ports: [{name: http, port: 8501, targetPort: http}]

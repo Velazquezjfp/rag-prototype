@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT / "src"))
 @pytest.fixture
 def at(tmp_path, monkeypatch):
     db = tmp_path / "ui.db"
-    monkeypatch.setattr(ui_app, "get_settings", lambda: Settings(db={"url": f"sqlite:///{db}"}, ui={"allow_user_switch": True}))
+    monkeypatch.setattr(ui_app, "get_settings", lambda: Settings(db={"url": f"sqlite:///{db}"}))
     ui_app.get_service.clear()
     yield AppTest.from_file(str(ROOT / "app.py"), default_timeout=180)
     ui_app.get_service.clear()
@@ -45,15 +45,14 @@ def test_real_turn_in_the_ui_shows_answer_sources_and_diagnostics(at):
     assert "BHB-PLT-" in answer and len(answer) > 80
     labels = [e.label for e in at.expander]
     assert any(lbl.startswith("Quellen (") for lbl in labels) and "Diagnostik" in labels, labels
-    assert at.metric[0].value == "1/10"
+    assert [sb.label for sb in at.sidebar.selectbox] == ["Gespräche"]  # no user selection
 
 
-def test_readonly_user_in_the_ui_sees_only_zsd(at):
+def test_manual_filter_in_the_ui_restricts_the_sources(at):
     at.run()
-    at.sidebar.selectbox[0].select("rita.read").run()
-    assert at.metric[0].value == "0/5"
-    opts = at.sidebar.multiselect[0].options  # display labels (format_func), one per allowed manual
-    assert len(opts) == 1 and opts[0].startswith("BHB-PLT-0007"), opts
+    opts = at.sidebar.multiselect[0].options  # display labels (format_func), one per indexed manual
+    zsd = next(o for o in opts if o.startswith("BHB-PLT-0007"))
+    at.sidebar.multiselect[0].select(zsd).run()
     at.chat_input[0].set_value("Was war bei ZSDSUP-0247?").run()
     assert not at.exception, at.exception
     sources = [e for e in at.expander if e.label.startswith("Quellen (")]

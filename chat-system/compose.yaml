@@ -49,7 +49,6 @@ services:
     environment:
       RAG__ONTOLOGY__PATH: /ontology/ontology.yaml
       CHAT__DB__URL: postgresql+psycopg://chat:${POSTGRES_PASSWORD:-chat}@postgres:5432/chat
-      CHAT__UI__ALLOW_USER_SWITCH: "false"
     depends_on: [postgres]              # ordering only (portable); the app retries the DB itself (pool_pre_ping)
     # deploy: { replicas: 1 }           # one instance: the concurrency semaphore is per process
 

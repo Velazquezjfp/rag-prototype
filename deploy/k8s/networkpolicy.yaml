@@ -1,0 +1,29 @@
+# Wer darf die Pods erreichen. PRÜFEN vor dem Aktivieren (kustomization.yaml): die Labels unten sind Platzhalter.
+# Falsche Labels sperren den Zugang komplett. Ausgehender Verkehr bleibt offen (externe URLs je Umgebung).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: chat-ingress
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: chat}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: oauth2-proxy}   # PRÜFEN: Label des Auth-Proxys (PAG)
+      ports: [{port: 8501}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingest-ingress
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: ingest}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: GATEWAY_NAMESPACE}   # PRÜFEN: Namespace des Gateways
+      ports: [{port: 8090}]

@@ -1,0 +1,47 @@
+[project]
+name = "opensearch-index"
+version = "0.1.0"
+description = "OpenSearch store for docling-graph-service output (RAG prototype, module 2): chunks + vectors, graph nodes, documents, idempotent ingest"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "opensearch-py>=3.2,<4",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.4",
+    "pyyaml>=6",
+    "typer>=0.12",
+]
+
+[project.scripts]
+osi = "opensearch_index.cli:app"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-timeout>=2.3",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/opensearch_index"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["integration: needs a running OpenSearch (OSI_INTEGRATION=1, OSI_INTEGRATION_URL)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "C4", "ISC"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/opensearch_index/cli.py" = ["B008"]  # typer idiom
+"tests/*" = ["E731", "E741"]

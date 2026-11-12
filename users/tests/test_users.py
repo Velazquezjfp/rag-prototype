@@ -1,4 +1,7 @@
-"""rag-users: adapters, limits, quota decisions, document access, settings. No services, no I/O."""
+"""rag-users: adapters, limits, quota decisions, document access, settings. No services, no I/O.
+
+The app uses no per-group rules (``get_policy``): one mock user locally, header users remotely, no daily limit. The
+``RULES``/``USERS`` below are test data for the Policy machinery, which still works when a caller passes rules."""
 
 from __future__ import annotations
 
@@ -12,8 +15,6 @@ from pydantic import ValidationError
 from rag_users import (
     DEFAULT_LIMITS,
     REASON_TEXT_DE,
-    RULES,
-    USERS,
     AuthAdapter,
     AuthContext,
     Decision,
@@ -26,12 +27,29 @@ from rag_users import (
     UsageStore,
     UsersSettings,
     get_adapter,
+    get_policy,
+)
+from rag_users import (
+    RULES as APP_RULES,
 )
 from rag_users.__main__ import main as show_main
 
 TODAY = date(2026, 9, 4)
 ZSD = "BHB-PLT-0007"
 CAAS = "BHB-PLT-0001"
+
+SPEC_DEFAULT = GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None)
+RULES = {
+    "admin": GroupLimits(daily_messages=100, max_turns_per_conversation=20, allowed_doc_ids=None),
+    "bavd-ops": GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None),
+    "bavd-readonly": GroupLimits(daily_messages=5, max_turns_per_conversation=5, allowed_doc_ids=(ZSD,)),
+}
+USERS = {
+    "dev": AuthContext(user_id="dev", email="dev@bavd.example", groups=("bavd-ops",)),
+    "otto.ops": AuthContext(user_id="otto.ops", email="otto.ops@bavd.example", groups=("bavd-ops",)),
+    "rita.read": AuthContext(user_id="rita.read", email="rita.read@bavd.example", groups=("bavd-readonly",)),
+    "anna.admin": AuthContext(user_id="anna.admin", email="anna.admin@bavd.example", groups=("admin", "bavd-ops")),
+}
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +61,7 @@ def _clean_users_env(monkeypatch):
 
 @pytest.fixture
 def policy() -> Policy:
-    return Policy()
+    return Policy(RULES, default=SPEC_DEFAULT)
 
 
 @pytest.fixture
@@ -58,14 +76,40 @@ def ctx(user_id: str) -> AuthContext:
 # ------------------------------------------------------------------------------------------ directory
 
 
-def test_mock_directory_is_consistent():
-    assert set(USERS) == {"dev", "otto.ops", "rita.read", "anna.admin"}
-    for uid, c in USERS.items():
-        assert c.user_id == uid
-        assert c.email.endswith("@bavd.example")
-        assert c.groups and all(g in RULES for g in c.groups), f"{uid}: every group must have a rule"
-    assert USERS["anna.admin"].groups == ("admin", "bavd-ops")
-    assert USERS["rita.read"].groups == ("bavd-readonly",)
+def test_app_defaults_have_no_rules_no_daily_limit_and_ten_turns():
+    assert APP_RULES == {}
+    assert DEFAULT_LIMITS == GroupLimits(daily_messages=None, max_turns_per_conversation=10, allowed_doc_ids=None)
+    p = Policy()
+    for groups in ((), ("admin",), ("bavd-readonly", "x")):  # groups grant and restrict nothing
+        assert p.limits_for(AuthContext(user_id="u", groups=groups)) == DEFAULT_LIMITS
+
+
+def test_no_daily_limit_by_default_but_the_turn_cap_holds():
+    p, usage = Policy(), MemoryUsageStore()
+    u = AuthContext(user_id="u")
+    usage.increment("u", TODAY, by=500)
+    d = p.check_message(u, usage, today=TODAY, turns_in_conversation=9, requested_doc_ids=[CAAS, ZSD])
+    assert d.allowed and d.remaining_today is None and d.doc_ids == (CAAS, ZSD)
+    d = p.check_message(u, usage, today=TODAY, turns_in_conversation=10)
+    assert not d.allowed and d.reason == "turn_cap" and "neues Gespräch" in d.message_de
+
+
+def test_get_policy_reads_the_limits_from_the_settings(monkeypatch):
+    assert get_policy(UsersSettings(_env_file=None)).default == DEFAULT_LIMITS
+    monkeypatch.setenv("USERS__MAX_TURNS", "3")
+    monkeypatch.setenv("USERS__DAILY_MESSAGES", "7")
+    p = get_policy(UsersSettings(_env_file=None))
+    assert p.rules == {} and p.default == GroupLimits(daily_messages=7, max_turns_per_conversation=3)
+    monkeypatch.setenv("USERS__MAX_TURNS", "0")
+    with pytest.raises(ValidationError):
+        UsersSettings(_env_file=None)
+
+
+def test_a_group_without_daily_limit_wins_over_a_limited_one():
+    p = Policy({"a": GroupLimits(daily_messages=5, max_turns_per_conversation=2),
+                "b": GroupLimits(daily_messages=None, max_turns_per_conversation=1)})
+    lim = p.limits_for(AuthContext(user_id="u", groups=("a", "b")))
+    assert lim.daily_messages is None and lim.max_turns_per_conversation == 2
 
 
 def test_auth_context_is_frozen_and_validated():
@@ -81,25 +125,20 @@ def test_auth_context_is_frozen_and_validated():
 # ---------------------------------------------------------------------------------------- env adapter
 
 
-def test_env_adapter_returns_the_fixed_identity():
-    adapter = EnvAuthAdapter("otto.ops")
+def test_env_adapter_returns_the_one_mock_user():
+    adapter = EnvAuthAdapter("dev")
     assert isinstance(adapter, AuthAdapter)
     c = adapter.current()
-    assert (c.user_id, c.email, c.groups) == ("otto.ops", "otto.ops@bavd.example", ("bavd-ops",))
-    assert adapter.current() is c  # stable object, no per-call state
+    assert (c.user_id, c.email, c.groups) == ("dev", "dev@localhost", ())
+    assert adapter.current() == c  # no per-call state
+    assert EnvAuthAdapter(" any.name ").current().user_id == "any.name"  # no directory: any name is the mock user
 
 
-def test_env_adapter_unknown_user_raises_and_names_the_known_ones():
-    with pytest.raises(Unauthenticated) as e:
-        EnvAuthAdapter("nobody").current()
-    assert "nobody" in str(e.value) and "rita.read" in str(e.value)
-
-
-def test_env_adapter_accepts_a_custom_directory():
-    users = {"t": AuthContext(user_id="t", email="t@x", groups=("admin",))}
-    assert EnvAuthAdapter("t", users=users).current().groups == ("admin",)
-    with pytest.raises(Unauthenticated):
-        EnvAuthAdapter("dev", users=users).current()
+def test_env_adapter_empty_user_raises():
+    for empty in ("", "   "):
+        with pytest.raises(Unauthenticated) as e:
+            EnvAuthAdapter(empty).current()
+        assert "USERS__DEV_USER" in str(e.value)
 
 
 # ------------------------------------------------------------------------------------- header adapter
@@ -169,13 +208,6 @@ def test_header_adapter_works_with_a_mapping_like_object():
 # --------------------------------------------------------------------------------------------- limits
 
 
-def test_defaults_match_the_spec():
-    assert DEFAULT_LIMITS == GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None)
-    assert RULES["bavd-ops"].daily_messages == 10
-    assert RULES["bavd-readonly"].allowed_doc_ids == (ZSD,)
-    assert RULES["admin"].allowed_doc_ids is None
-
-
 def test_limits_for_single_group(policy):
     assert policy.limits_for(ctx("otto.ops")) == RULES["bavd-ops"]
     assert policy.limits_for(ctx("rita.read")) == RULES["bavd-readonly"]
@@ -201,8 +233,8 @@ def test_limits_for_unions_restricted_doc_lists():
 
 
 def test_limits_for_unknown_groups_grant_nothing(policy):
-    assert policy.limits_for(AuthContext(user_id="u", groups=())) == DEFAULT_LIMITS
-    assert policy.limits_for(AuthContext(user_id="u", groups=("marketing",))) == DEFAULT_LIMITS
+    assert policy.limits_for(AuthContext(user_id="u", groups=())) == SPEC_DEFAULT
+    assert policy.limits_for(AuthContext(user_id="u", groups=("marketing",))) == SPEC_DEFAULT
     # an unknown group must not widen a restricted one to the defaults
     lim = policy.limits_for(AuthContext(user_id="u", groups=("marketing", "bavd-readonly")))
     assert lim == RULES["bavd-readonly"]
@@ -341,7 +373,7 @@ def test_memory_usage_store_counts_increments_and_refunds():
 
 def test_settings_defaults():
     s = UsersSettings(_env_file=None)
-    assert s.adapter == "env" and s.dev_user == "dev"
+    assert s.adapter == "env" and s.dev_user == "dev" and s.max_turns == 10 and s.daily_messages is None
     assert (s.header_user, s.header_email, s.header_groups) == (
         "X-Forwarded-User",
         "X-Forwarded-Email",
@@ -416,20 +448,20 @@ def test_readonly_user_full_day(policy, usage):
 # ----------------------------------------------------------------------------------------- __main__
 
 
-def test_show_prints_directory_and_current_user(capsys, monkeypatch, tmp_path):
+def test_show_prints_the_current_user_and_the_limits(capsys, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("USERS__DEV_USER", "rita.read")
+    monkeypatch.setenv("USERS__DEV_USER", "lokal")
     assert show_main([]) == 0
     out = capsys.readouterr().out
-    assert "current: rita.read <rita.read@bavd.example> groups=bavd-readonly" in out
-    assert "bavd-readonly" in out and "BHB-PLT-0007" in out and "anna.admin" in out
+    assert "current: lokal <lokal@localhost>" in out
+    assert "no daily limit, 10 turns per conversation, all manuals" in out
 
 
-def test_show_json_and_unauthenticated(capsys, monkeypatch, tmp_path):
+def test_show_json_and_header_adapter_without_request(capsys, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("USERS__DEV_USER", "ghost")
+    monkeypatch.setenv("USERS__ADAPTER", "header")
+    monkeypatch.setenv("USERS__MAX_TURNS", "4")
     assert show_main(["--json"]) == 0
     data = json.loads(capsys.readouterr().out)
-    assert "error" in data["current"] and "ghost" in data["current"]["error"]
-    assert data["users"]["anna.admin"]["limits"]["daily_messages"] == 100
-    assert data["rules"]["bavd-readonly"]["allowed_doc_ids"] == [ZSD]
+    assert "error" in data["current"] and "X-Forwarded-User" in data["current"]["error"]  # no request here
+    assert data["limits"] == {"daily_messages": None, "max_turns_per_conversation": 4, "allowed_doc_ids": None}

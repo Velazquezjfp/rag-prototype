@@ -19,6 +19,5 @@ limits:
 
 ui:
   title: Betriebshandbuch-Assistent
-  allow_user_switch: false             # sidebar user selectbox = the simulated ingress of ADR-0008; true on the dev box only
   show_diagnostics_default: false
   conversation_list_limit: 20

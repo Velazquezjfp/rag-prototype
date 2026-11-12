@@ -39,11 +39,22 @@ def test_chat_ask_continues_a_conversation_and_rewrites(fake_wiring):
     assert second.exit_code == 0 and "umformulierte Frage: Wer ist für Keycloak zuständig?" in second.output
 
 
-def test_chat_ask_refusal_exits_2_and_unknown_user_exits_1(fake_wiring):
-    res = runner.invoke(cli.ask_app, ["Frage?", "--user", "rita.read", "--doc-id", "BHB-PLT-0001"])
+def test_chat_ask_refusal_exits_2_and_empty_user_exits_1(fake_wiring):
+    first = runner.invoke(cli.ask_app, ["Frage?", "--user", "eins", "--json"])
+    conv_id = json.loads(first.output)["conversation_id"]
+    res = runner.invoke(cli.ask_app, ["Frage?", "--user", "zwei", "--conversation", conv_id])  # not her conversation
     assert res.exit_code == 2 and "abgelehnt (forbidden)" in res.output
-    res = runner.invoke(cli.ask_app, ["Frage?", "--user", "ghost"])
-    assert res.exit_code == 1 and "unknown dev user" in res.output
+    res = runner.invoke(cli.ask_app, ["Frage?", "--user", " "])
+    assert res.exit_code == 1 and "USERS__DEV_USER" in res.output
+
+
+def test_chat_ask_without_daily_limit_prints_only_the_turns(repo, monkeypatch):
+    from rag_users import get_policy
+
+    svc = make_service(repo, policy=get_policy())
+    monkeypatch.setattr(wiring, "build_service", lambda settings=None, **kw: svc)
+    res = runner.invoke(cli.ask_app, ["Frage?"])
+    assert res.exit_code == 0 and "noch 9 Runde(n)" in res.output and "heute noch" not in res.output
 
 
 def test_chat_ask_guardrail_prints_the_canned_answer(repo, monkeypatch):

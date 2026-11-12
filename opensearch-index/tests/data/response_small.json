@@ -1,0 +1,3480 @@
+{
+ "document": {
+  "name": "Betriebshandbuch_ZSD.pdf",
+  "format": "pdf",
+  "sha256": "2bb722f565a0ff49ccb42790a6ada683d86cef0486c8a1da8b55f5265c845c72",
+  "pages": 29,
+  "tables": 22,
+  "pictures": 3
+ },
+ "markdown": "BETRIEBSHANDBUCH\n\n## ZSD - Zentrale Sicherheits­ dienste\n\nIdentitätsverwaltung, Public-Key-Infrastruktur und Secret-Management für alle Verfahren des Bundesamtes\n\n| Anwendung        | ZSD - Zentrale Sicherheitsdienste (IAM, PKI, Vault)      |\n|------------------|----------------------------------------------------------|\n| CI-Nummer        | CI-PLT-0007                                              |\n| Verantwortlicher | Kai Ostermann (Bereich IT-S 1, Durchwahl 1315)           |\n| Vertretung       | Sabine Wollmer (Durchwahl 1180)                          |\n| Fachseite        | Bereich IT-S 1 - Informationssicherheit und Basisdienste |\n| Dokument         | BHB-PLT-0007, Version 2.3                                |\n| Stand            | 22. Juli 2026                                            |\n| Klassifizierung  | intern · Testdokument - fiktive Daten                    |\n\nHerausgeber: Bundesamt für Verfahrensdienste (BAVD), Bereich IT-S 1 - Informationssicherheit und Basisdienste · Interne Dokumentation · Weitergabe nur an berechtigte Stellen Betriebshandbuch ZSD - Zentrale Sicherheitsdienste\n\n<!-- page break -->\n\n## Inhaltsverzeichnis\n\n## 1 Dokumentinformation\n\n### Zweck, Zielgruppe, Geltungsbereich\n### Änderungshistorie\n### Verwandte Dokumente\n\n## 2 Kurzbeschreibung und Abgrenzung\n\n### Die drei Dienste\n### Abgrenzung\n### Kennzahlen des laufenden Betriebs\n\n## 3 Systemüberblick\n\n### Architektur\n### Komponenten und Instanzen\n### Vernetzung und Ports\n\n## 4 Konsumenten und Verknüpfungen\n\nVPP Portal (BHB-VRF-0207)\n\nMars Dokumentendienste (BHB-VRF-0118)\n\nEvent-System 2.0 (BHB-PLT-0042)\n\nCaaS-Plattform (BHB-PLT-0001)\n\nÜberwachung des VPP (BHB-VRF-0207)\n\n## 5 Betrieb\n\n### Servicezeiten und Wartungsfenster\n### Zugänge und Rollen\n### Standardabläufe\n### Keycloak rollierend neu starten (SOP-ZSD-02)\n### Client-Secret rotieren (SOP-ZSD-03)\n### Vault entsiegeln (SOP-ZSD-05)\n### Zertifikatslebenszyklus\n### Standard Operating Procedures\n\n## 6 Abhängigkeiten und Auswirkungen\n\n### Überblick\n### Auswirkungsmatrix\n### Zirkuläre Abhängigkeit und ihre Auflösung\n\n## 7 Troubleshooting\n\n### Meldewege und erste Prüfungen\n### Dokumentierte Störungsbilder\n### ACME-Anträge werden von der Firewall verworfen\n\n7.2.2 Client-Secret ohne Abstimmung rotiert\n\n### Truststore nach CA-Wechsel zu spät verteilt\n### Vault nach Knotenwartung versiegelt\n### Incident-Liste\n\n## 8 Monitoring, Sicherung und Notfall\n\n### Metriken, Schwellwerte und Alarme\n### Sicherung und Wiederherstellung\n\n<!-- page break -->\n\n8.3 Break-Glass\n\n## 9 Rollen, Verantwortlichkeiten und Eskalation\n\n### Rollen und Erreichbarkeit\n### Eskalation\n### Halter der Unseal-Schlüsselanteile\n\n## 10 Glossar und verwandte Dokumente\n\n### Glossar\n### Weiterführende Dokumente und Seiten\n\n<!-- page break -->\n\n## 1 Dokumentinformation\n\n### 1.1 Zweck, Zielgruppe, Geltungsbereich\n\nDieses Handbuch beschreibt den Betrieb der Zentralen Sicherheitsdienste (ZSD) des Bundesamtes für Verfahrensdienste (BAVD): Identitätsverwaltung mit Keycloak,",
+ "chunks": [
+  {
+   "chunk_id": "2bb722f565a0-0000",
+   "text": "BETRIEBSHANDBUCH",
+   "body_text": "BETRIEBSHANDBUCH",
+   "heading_breadcrumb": [],
+   "heading_level": 0,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    1
+   ],
+   "dom_paths": [
+    "#/texts/3"
+   ],
+   "bboxes": [
+    {
+     "page": 1,
+     "l": 41.99999825,
+     "t": 121.20478655914496,
+     "r": 182.16170072843667,
+     "b": 132.96807512334647,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 9,
+   "embedding": [
+    -0.34104,
+    -0.124458,
+    -0.380905,
+    -0.49808,
+    -0.096925,
+    -0.062232,
+    0.673952,
+    -0.086894
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0001",
+   "text": "ZSD - Zentrale Sicherheits­ dienste\nIdentitätsverwaltung, Public-Key-Infrastruktur und Secret-Management für alle Verfahren des Bundesamtes",
+   "body_text": "Identitätsverwaltung, Public-Key-Infrastruktur und Secret-Management für alle Verfahren des Bundesamtes",
+   "heading_breadcrumb": [
+    "ZSD - Zentrale Sicherheits­ dienste"
+   ],
+   "heading_level": 1,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    1
+   ],
+   "dom_paths": [
+    "#/texts/5"
+   ],
+   "bboxes": [
+    {
+     "page": 1,
+     "l": 41.99999825,
+     "t": 197.61021908186228,
+     "r": 459.82345973042715,
+     "b": 231.97557755679225,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 34,
+   "embedding": [
+    -0.392309,
+    0.025294,
+    -0.71451,
+    -0.1435,
+    -0.420105,
+    0.051623,
+    0.293923,
+    -0.220891
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0002",
+   "text": "ZSD - Zentrale Sicherheits­ dienste\n| Anwendung | ZSD - Zentrale Sicherheitsdienste (IAM, PKI, Vault) |\n| - | - |\n| CI-Nummer | CI-PLT-0007 |\n| Verantwortlicher | Kai Ostermann (Bereich IT-S 1, Durchwahl 1315) |\n| Vertretung | Sabine Wollmer (Durchwahl 1180) |\n| Fachseite | Bereich IT-S 1 - Informationssicherheit und Basisdienste |\n| Dokument | BHB-PLT-0007, Version 2.3 |\n| Stand | 22. Juli 2026 |\n| Klassifizierung | intern · Testdokument - fiktive Daten |",
+   "body_text": "| Anwendung | ZSD - Zentrale Sicherheitsdienste (IAM, PKI, Vault) |\n| - | - |\n| CI-Nummer | CI-PLT-0007 |\n| Verantwortlicher | Kai Ostermann (Bereich IT-S 1, Durchwahl 1315) |\n| Vertretung | Sabine Wollmer (Durchwahl 1180) |\n| Fachseite | Bereich IT-S 1 - Informationssicherheit und Basisdienste |\n| Dokument | BHB-PLT-0007, Version 2.3 |\n| Stand | 22. Juli 2026 |\n| Klassifizierung | intern · Testdokument - fiktive Daten |",
+   "heading_breadcrumb": [
+    "ZSD - Zentrale Sicherheits­ dienste"
+   ],
+   "heading_level": 1,
+   "kind": "table",
+   "caption": null,
+   "page_numbers": [
+    1
+   ],
+   "dom_paths": [
+    "#/tables/0"
+   ],
+   "bboxes": [
+    {
+     "page": 1,
+     "l": 41.23084887640639,
+     "t": 477.8767283418594,
+     "r": 362.69980139145514,
+     "b": 686.6690242715747,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 166,
+   "embedding": [
+    -0.366438,
+    -0.240869,
+    -0.641321,
+    -0.077355,
+    -0.189981,
+    -0.30568,
+    0.291813,
+    -0.419215
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0003",
+   "text": "ZSD - Zentrale Sicherheits­ dienste\nHerausgeber: Bundesamt für Verfahrensdienste (BAVD), Bereich IT-S 1 - Informationssicherheit und Basisdienste · Interne Dokumentation · Weitergabe nur an berechtigte Stellen Betriebshandbuch ZSD - Zentrale Sicherheitsdienste",
+   "body_text": "Herausgeber: Bundesamt für Verfahrensdienste (BAVD), Bereich IT-S 1 - Informationssicherheit und Basisdienste · Interne Dokumentation · Weitergabe nur an berechtigte Stellen Betriebshandbuch ZSD - Zentrale Sicherheitsdienste",
+   "heading_breadcrumb": [
+    "ZSD - Zentrale Sicherheits­ dienste"
+   ],
+   "heading_level": 1,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    1,
+    2
+   ],
+   "dom_paths": [
+    "#/texts/6"
+   ],
+   "bboxes": [
+    {
+     "page": 1,
+     "l": 41.99999825,
+     "t": 714.7628996791641,
+     "r": 511.3282167858381,
+     "b": 736.6018409572082,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 2,
+     "l": 42.51562322851562,
+     "t": 32.210447857897975,
+     "r": 219.28197256325072,
+     "b": 40.58935375877684,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 63,
+   "embedding": [
+    -0.01756,
+    -0.104418,
+    -0.774077,
+    -0.163604,
+    0.029865,
+    0.232053,
+    0.462655,
+    -0.306653
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0004",
+   "text": "4 Konsumenten und Verknüpfungen\nVPP Portal (BHB-VRF-0207)\nMars Dokumentendienste (BHB-VRF-0118)\nEvent-System 2.0 (BHB-PLT-0042)\nCaaS-Plattform (BHB-PLT-0001)\nÜberwachung des VPP (BHB-VRF-0207)",
+   "body_text": "VPP Portal (BHB-VRF-0207)\nMars Dokumentendienste (BHB-VRF-0118)\nEvent-System 2.0 (BHB-PLT-0042)\nCaaS-Plattform (BHB-PLT-0001)\nÜberwachung des VPP (BHB-VRF-0207)",
+   "heading_breadcrumb": [
+    "4 Konsumenten und Verknüpfungen"
+   ],
+   "heading_level": 1,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    2
+   ],
+   "dom_paths": [
+    "#/texts/16",
+    "#/texts/17",
+    "#/texts/18",
+    "#/texts/19",
+    "#/texts/20"
+   ],
+   "bboxes": [
+    {
+     "page": 2,
+     "l": 90.86266542605544,
+     "t": 319.3871155821287,
+     "r": 205.60123948889415,
+     "b": 329.4412768502931,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 2,
+     "l": 90.86266542605544,
+     "t": 334.4701253856699,
+     "r": 263.55651346034614,
+     "b": 344.52428665383434,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 2,
+     "l": 90.86266542605544,
+     "t": 350.2713737512845,
+     "r": 230.08341388083366,
+     "b": 360.3255350194489,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 2,
+     "l": 90.86266542605544,
+     "t": 365.35438355482563,
+     "r": 220.5850552320477,
+     "b": 375.40854482299017,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 2,
+     "l": 90.86266542605544,
+     "t": 381.15563192044044,
+     "r": 254.57664648914644,
+     "b": 391.20979318860475,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 75,
+   "embedding": [
+    -0.11707,
+    -0.034562,
+    -0.536307,
+    0.311474,
+    -0.205685,
+    -0.023793,
+    0.737426,
+    0.117425
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0005",
+   "text": "7 Troubleshooting\nACME-Anträge werden von der Firewall verworfen\n7.2.2 Client-Secret ohne Abstimmung rotiert",
+   "body_text": "7.2.2 Client-Secret ohne Abstimmung rotiert",
+   "heading_breadcrumb": [
+    "7 Troubleshooting",
+    "ACME-Anträge werden von der Firewall verworfen"
+   ],
+   "heading_level": 2,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    2
+   ],
+   "dom_paths": [
+    "#/texts/24"
+   ],
+   "bboxes": [
+    {
+     "page": 2,
+     "l": 90.86266542605544,
+     "t": 677.069919494678,
+     "r": 265.24166610145,
+     "b": 687.1240807628423,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 31,
+   "embedding": [
+    -0.784988,
+    0.472974,
+    0.00596,
+    0.16718,
+    -0.232078,
+    -0.119942,
+    0.196384,
+    -0.159032
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0006",
+   "text": "8 Monitoring, Sicherung und Notfall\nSicherung und Wiederherstellung\n8.3 Break-Glass",
+   "body_text": "8.3 Break-Glass",
+   "heading_breadcrumb": [
+    "8 Monitoring, Sicherung und Notfall",
+    "Sicherung und Wiederherstellung"
+   ],
+   "heading_level": 2,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    3
+   ],
+   "dom_paths": [
+    "#/texts/30"
+   ],
+   "bboxes": [
+    {
+     "page": 3,
+     "l": 66.43133183802772,
+     "t": 69.63820464155663,
+     "r": 135.06341735967763,
+     "b": 80.3342917850556,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 24,
+   "embedding": [
+    -0.24395,
+    0.390137,
+    -0.220852,
+    0.142053,
+    -0.067038,
+    0.392035,
+    0.625405,
+    0.412322
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0007",
+   "text": "1 Dokumentinformation\n1.1 Zweck, Zielgruppe, Geltungsbereich\nDieses Handbuch beschreibt den Betrieb der Zentralen Sicherheitsdienste (ZSD) des Bundesamtes für Verfahrensdienste (BAVD): Identitätsverwaltung mit Keycloak, interne Public-Key-Infrastruktur mit der BAVD Issuing CA 3 und Secret-Management mit Vault. Alle drei sind Basisdienste ohne eigene Fachaufgabe; jede Kopplung ist deshalb aus Sicht des Erbringers und des Konsumenten beschrieben. Zweiter Zweck ist die Beantwortung der Frage, die bei zentralen Diensten am häufigsten gestellt wird: 'Wenn ich diesen Dienst neu starte oder er fällt aus - wer ist betroffen, wie hoch ist das Risiko, mit wem muss ich reden?' Die Antwort steht in Kapitel 5.3 (Vorgehen), Kapitel 4 (Konsumenten und Ansprechpartner) und Kapitel 6 (Auswirkungen).\nZielgruppe sind der ZSD-Betrieb im Bereich IT-S 1, der Systembetrieb der angebundenen Verfahren, der First- und Second-Level-Support, der Netzbetrieb und der CaaS-Plattformbetrieb als unmittelbare Nachbarn sowie die Informationssicherheit für Nachweise zu Rollen, Sperrungen und Break-Glass. Geltungsbereich ist die Produktion einschließlich des föderierten Active Directory; Test- und Entwicklungsstände (Realm bavd-test , BAVD Test CA 1 , Namespace vault-system-test ) folgen denselben Abläufen ohne Rufbereitschaft und ohne Vier-AugenPrinzip.",
+   "body_text": "Dieses Handbuch beschreibt den Betrieb der Zentralen Sicherheitsdienste (ZSD) des Bundesamtes für Verfahrensdienste (BAVD): Identitätsverwaltung mit Keycloak, interne Public-Key-Infrastruktur mit der BAVD Issuing CA 3 und Secret-Management mit Vault. Alle drei sind Basisdienste ohne eigene Fachaufgabe; jede Kopplung ist deshalb aus Sicht des Erbringers und des Konsumenten beschrieben. Zweiter Zweck ist die Beantwortung der Frage, die bei zentralen Diensten am häufigsten gestellt wird: 'Wenn ich diesen Dienst neu starte oder er fällt aus - wer ist betroffen, wie hoch ist das Risiko, mit wem muss ich reden?' Die Antwort steht in Kapitel 5.3 (Vorgehen), Kapitel 4 (Konsumenten und Ansprechpartner) und Kapitel 6 (Auswirkungen).\nZielgruppe sind der ZSD-Betrieb im Bereich IT-S 1, der Systembetrieb der angebundenen Verfahren, der First- und Second-Level-Support, der Netzbetrieb und der CaaS-Plattformbetrieb als unmittelbare Nachbarn sowie die Informationssicherheit für Nachweise zu Rollen, Sperrungen und Break-Glass. Geltungsbereich ist die Produktion einschließlich des föderierten Active Directory; Test- und Entwicklungsstände (Realm bavd-test , BAVD Test CA 1 , Namespace vault-system-test ) folgen denselben Abläufen ohne Rufbereitschaft und ohne Vier-AugenPrinzip.",
+   "heading_breadcrumb": [
+    "1 Dokumentinformation",
+    "1.1 Zweck, Zielgruppe, Geltungsbereich"
+   ],
+   "heading_level": 2,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    4
+   ],
+   "dom_paths": [
+    "#/texts/40",
+    "#/texts/41"
+   ],
+   "bboxes": [
+    {
+     "page": 4,
+     "l": 41.99999825,
+     "t": 148.9271534938133,
+     "r": 545.9011675871687,
+     "b": 247.78595807669615,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 4,
+     "l": 41.99999825,
+     "t": 258.0994149289685,
+     "r": 552.2888557663446,
+     "b": 343.3116868324572,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 331,
+   "embedding": [
+    -0.295118,
+    -0.161374,
+    -0.580727,
+    -0.116755,
+    0.070554,
+    0.363227,
+    0.481005,
+    -0.409524
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0008",
+   "text": "1 Dokumentinformation\n1.2 Änderungshistorie\nTabelle 1 führt die Änderungen seit Version 1.8; sie sind überwiegend Folge dokumentierter Störungen (Kapitel 7).",
+   "body_text": "Tabelle 1 führt die Änderungen seit Version 1.8; sie sind überwiegend Folge dokumentierter Störungen (Kapitel 7).",
+   "heading_breadcrumb": [
+    "1 Dokumentinformation",
+    "1.2 Änderungshistorie"
+   ],
+   "heading_level": 2,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    4
+   ],
+   "dom_paths": [
+    "#/texts/43"
+   ],
+   "bboxes": [
+    {
+     "page": 4,
+     "l": 41.99999825,
+     "t": 382.35468616766536,
+     "r": 548.9894458922482,
+     "b": 393.58838617759454,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 36,
+   "embedding": [
+    0.00167,
+    -0.142729,
+    -0.3012,
+    0.066456,
+    -0.114496,
+    -0.680837,
+    0.016814,
+    0.638401
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0009",
+   "text": "1 Dokumentinformation\n1.2 Änderungshistorie\nTabelle 1: Änderungshistorie\n\n| Version | Datum | Autor | Änderung |\n| - | - | - | - |\n| 1.8 | 12.09.2025 | Kai Ostermann | Regel FW-ZSD-004 dauerhaft freigeschaltet, synthetische ACME-Prüfung aufgenommen (Folge aus ZSDSUP-0119) |\n| 2.0 | 03.02.2026 | Sabine Wollmer | Kapitel 5.4 neu gefasst, Abbildung 2 ergänzt, Sperrfrist auf 4 Stunden festgelegt |\n| 2.1 | 25.05.2026 | Kai Ostermann | SOP-ZSD-03 um Abstimmungspflicht und Übergabepfad, SOP-ZSD-04 um die Bestätigungsliste erweitert (Folge aus ZSDSUP-0208 und ZSDSUP-0214) |\n| 2.2 | 10.07.2026 | Marcel Ebert | Vault-Unseal, Alarm VaultSealed und Break-Glass überarbeitet, Ankündigungspflicht für Knotenwartungen (Folge aus ZSDSUP-0247) |\n| 2.3 | 22.07.2026 | Kai Ostermann | Konsumentenmatrix (Kapitel 4) und Auswirkungsmatrix (Kapitel 6) aufgenommen, Abbildungen 1 und 3 ergänzt, Verweise auf BHB-PLT-0001 eingearbeitet |",
+   "body_text": "Tabelle 1: Änderungshistorie\n\n| Version | Datum | Autor | Änderung |\n| - | - | - | - |\n| 1.8 | 12.09.2025 | Kai Ostermann | Regel FW-ZSD-004 dauerhaft freigeschaltet, synthetische ACME-Prüfung aufgenommen (Folge aus ZSDSUP-0119) |\n| 2.0 | 03.02.2026 | Sabine Wollmer | Kapitel 5.4 neu gefasst, Abbildung 2 ergänzt, Sperrfrist auf 4 Stunden festgelegt |\n| 2.1 | 25.05.2026 | Kai Ostermann | SOP-ZSD-03 um Abstimmungspflicht und Übergabepfad, SOP-ZSD-04 um die Bestätigungsliste erweitert (Folge aus ZSDSUP-0208 und ZSDSUP-0214) |\n| 2.2 | 10.07.2026 | Marcel Ebert | Vault-Unseal, Alarm VaultSealed und Break-Glass überarbeitet, Ankündigungspflicht für Knotenwartungen (Folge aus ZSDSUP-0247) |\n| 2.3 | 22.07.2026 | Kai Ostermann | Konsumentenmatrix (Kapitel 4) und Auswirkungsmatrix (Kapitel 6) aufgenommen, Abbildungen 1 und 3 ergänzt, Verweise auf BHB-PLT-0001 eingearbeitet |",
+   "heading_breadcrumb": [
+    "1 Dokumentinformation",
+    "1.2 Änderungshistorie"
+   ],
+   "heading_level": 2,
+   "kind": "table",
+   "caption": "Tabelle 1: Änderungshistorie",
+   "page_numbers": [
+    4
+   ],
+   "dom_paths": [
+    "#/texts/44",
+    "#/tables/1"
+   ],
+   "bboxes": [
+    {
+     "page": 4,
+     "l": 41.99999825,
+     "t": 403.0475319313049,
+     "r": 150.92676749714093,
+     "b": 412.67641765410133,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 4,
+     "l": 40.94756172082901,
+     "t": 415.0882126473532,
+     "r": 554.2298994236438,
+     "b": 581.5645420929716,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 321,
+   "embedding": [
+    -0.310994,
+    0.077586,
+    -0.258547,
+    0.491591,
+    -0.025372,
+    -0.671306,
+    0.319082,
+    0.188802
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0010",
+   "text": "1 Dokumentinformation\n1.3 Verwandte Dokumente\nTabelle 2 nennt die Handbücher der vier Konsumenten und die übergreifenden Vorgaben. Jede Kopplung ist in beiden Dokumenten beschrieben; bei Abweichungen gelten Ports und Hostnamen dieses Handbuchs, Verfahrensabläufe das Handbuch des Verfahrens.",
+   "body_text": "Tabelle 2 nennt die Handbücher der vier Konsumenten und die übergreifenden Vorgaben. Jede Kopplung ist in beiden Dokumenten beschrieben; bei Abweichungen gelten Ports und Hostnamen dieses Handbuchs, Verfahrensabläufe das Handbuch des Verfahrens.",
+   "heading_breadcrumb": [
+    "1 Dokumentinformation",
+    "1.3 Verwandte Dokumente"
+   ],
+   "heading_level": 2,
+   "kind": "text",
+   "caption": null,
+   "page_numbers": [
+    4
+   ],
+   "dom_paths": [
+    "#/texts/46"
+   ],
+   "bboxes": [
+    {
+     "page": 4,
+     "l": 41.99999825,
+     "t": 619.3734116518848,
+     "r": 533.3859985017494,
+     "b": 659.3366541447498,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 69,
+   "embedding": [
+    -0.053668,
+    -0.207137,
+    -0.854872,
+    0.324273,
+    -0.092572,
+    0.020921,
+    0.308303,
+    -0.119153
+   ]
+  },
+  {
+   "chunk_id": "2bb722f565a0-0011",
+   "text": "1 Dokumentinformation\n1.3 Verwandte Dokumente\nTabelle 2: Verwandte Dokumente und Berührungspunkt\n\n| Kennung | Dokument | Stand | Berührungspunkt |\n| - | - | - | - |\n| BHB-VRF-0207 | Betriebshandbuch VPP - Verfahrensportal Prüfprozesse, V 6.2 | 17.07.2026 | Client vpp-portal, manuelle Zertifikate (SOP-VPP-05), kv/vpp/prod/* |\n| BHB-VRF-0118 | Betriebshandbuch Mars Dokumentendienste, V 4.1 | 21.07.2026 | Client dd-gateway, gemischtes Verfahren (SOP-DD-05), kv/dd/* |\n| BHB-PLT-0042 | Betriebshandbuch Event-System 2.0, V 2.3 | 19.05.2026 | Client es-grafana, ACME über cert-manager, kv/event-system/* |",
+   "body_text": "Tabelle 2: Verwandte Dokumente und Berührungspunkt\n\n| Kennung | Dokument | Stand | Berührungspunkt |\n| - | - | - | - |\n| BHB-VRF-0207 | Betriebshandbuch VPP - Verfahrensportal Prüfprozesse, V 6.2 | 17.07.2026 | Client vpp-portal, manuelle Zertifikate (SOP-VPP-05), kv/vpp/prod/* |\n| BHB-VRF-0118 | Betriebshandbuch Mars Dokumentendienste, V 4.1 | 21.07.2026 | Client dd-gateway, gemischtes Verfahren (SOP-DD-05), kv/dd/* |\n| BHB-PLT-0042 | Betriebshandbuch Event-System 2.0, V 2.3 | 19.05.2026 | Client es-grafana, ACME über cert-manager, kv/event-system/* |",
+   "heading_breadcrumb": [
+    "1 Dokumentinformation",
+    "1.3 Verwandte Dokumente"
+   ],
+   "heading_level": 2,
+   "kind": "table",
+   "caption": "Tabelle 2: Verwandte Dokumente und Berührungspunkt",
+   "page_numbers": [
+    4
+   ],
+   "dom_paths": [
+    "#/texts/47",
+    "#/tables/2"
+   ],
+   "bboxes": [
+    {
+     "page": 4,
+     "l": 41.99999825,
+     "t": 668.7957998984597,
+     "r": 253.62085361152566,
+     "b": 678.4246856212561,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    },
+    {
+     "page": 4,
+     "l": 41.36685127443557,
+     "t": 681.4696912533362,
+     "r": 554.3421890329205,
+     "b": 789.8133973254004,
+     "page_width": 595.91998,
+     "page_height": 842.88,
+     "coord_origin": "TOPLEFT"
+    }
+   ],
+   "token_count": 224,
+   "embedding": [
+    -0.382705,
+    -0.004588,
+    -0.622794,
+    0.230122,
+    -0.221968,
+    0.01606,
+    0.533332,
+    0.280564
+   ]
+  }
+ ],
+ "graph": {
+  "nodes": [
+   {
+    "id": "Document_ddfceb8b3907ff3e",
+    "type": "Document",
+    "label": "Betriebshandbuch ZSD - Zentrale Sicherheitsdienste",
+    "attributes": {
+     "doc_id": "BHB-PLT-0007",
+     "title": "Betriebshandbuch ZSD - Zentrale Sicherheitsdienste",
+     "version": "2.3",
+     "valid_from": "22. Juli 2026",
+     "classification": "intern · Testdokument - fiktive Daten",
+     "ci_id": "CI-PLT-0007"
+    },
+    "aliases": [
+     "BHB-PLT-0007"
+    ],
+    "quote": "BHB-PLT-0007, Version 2.3",
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Document_234d427649efd1ba",
+    "type": "Document",
+    "label": "Betriebshandbuch VPP - Verfahrensportal Prüfprozesse, V 6.2",
+    "attributes": {
+     "doc_id": "BHB-VRF-0207",
+     "title": "Betriebshandbuch VPP - Verfahrensportal Prüfprozesse",
+     "version": "6.2",
+     "valid_from": "2026-07-17"
+    },
+    "aliases": [
+     "BHB-VRF-0207"
+    ],
+    "quote": "BHB-VRF-0207 | Betriebshandbuch VPP - Verfahrensportal Prüfprozesse, V 6.2 | 17.07.2026",
+    "provenance": {
+     "pages": [
+      4,
+      5
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Document_529fe0a3c965d5a0",
+    "type": "Document",
+    "label": "Betriebshandbuch Mars Dokumentendienste, V 4.1",
+    "attributes": {
+     "doc_id": "BHB-VRF-0118",
+     "title": "Betriebshandbuch Mars Dokumentendienste",
+     "version": "4.1",
+     "valid_from": "2026-07-21"
+    },
+    "aliases": [
+     "BHB-VRF-0118"
+    ],
+    "quote": "BHB-VRF-0118 | Betriebshandbuch Mars Dokumentendienste, V 4.1 | 21.07.2026",
+    "provenance": {
+     "pages": [
+      4,
+      5
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Document_b118519b59e00ecc",
+    "type": "Document",
+    "label": "Betriebshandbuch Event-System 2.0, V 2.3",
+    "attributes": {
+     "doc_id": "BHB-PLT-0042",
+     "title": "Betriebshandbuch Event-System 2.0",
+     "version": "2.3",
+     "valid_from": "2026-05-19"
+    },
+    "aliases": [
+     "BHB-PLT-0042"
+    ],
+    "quote": "BHB-PLT-0042 | Betriebshandbuch Event-System 2.0, V 2.3 | 19.05.2026",
+    "provenance": {
+     "pages": [
+      4,
+      5
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "OrgUnit_9b3ace7340e5a55a",
+    "type": "OrgUnit",
+    "label": "Bereich IT-S 1 - Informationssicherheit und Basisdienste",
+    "attributes": {
+     "kind": "bereich",
+     "short_name": "IT-S 1"
+    },
+    "aliases": [
+     "Bereich IT-S 1"
+    ],
+    "quote": "Bereich IT-S 1 - Informationssicherheit und Basisdienste",
+    "provenance": {
+     "pages": [
+      1,
+      2
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0001",
+      "2bb722f565a0-0002",
+      "2bb722f565a0-0003"
+     ],
+     "dom_paths": [
+      "#/texts/5",
+      "#/tables/0",
+      "#/texts/6",
+      "#/texts/7",
+      "#/texts/8",
+      "#/texts/9",
+      "#/texts/10"
+     ],
+     "heading_breadcrumb": [
+      "ZSD - Zentrale Sicherheits­ dienste"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "OrgUnit_00634dd5b36767d9",
+    "type": "OrgUnit",
+    "label": "Bundesamt für Verfahrensdienste (BAVD)",
+    "attributes": {
+     "kind": "behoerde",
+     "short_name": "BAVD"
+    },
+    "aliases": [
+     "BAVD"
+    ],
+    "quote": "Herausgeber: Bundesamt für Verfahrensdienste (BAVD), Bereich IT-S 1 - Informationssicherheit und Basisdienste",
+    "provenance": {
+     "pages": [
+      1,
+      2
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0001",
+      "2bb722f565a0-0002",
+      "2bb722f565a0-0003"
+     ],
+     "dom_paths": [
+      "#/texts/5",
+      "#/tables/0",
+      "#/texts/6",
+      "#/texts/7",
+      "#/texts/8",
+      "#/texts/9",
+      "#/texts/10"
+     ],
+     "heading_breadcrumb": [
+      "ZSD - Zentrale Sicherheits­ dienste"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "OrgUnit_386615fb69aa5b62",
+    "type": "OrgUnit",
+    "label": "IT-S 1",
+    "attributes": {
+     "kind": "bereich",
+     "short_name": "IT-S 1"
+    },
+    "aliases": [
+     "Bereich IT-S 1"
+    ],
+    "quote": "Kai Ostermann (Bereich IT-S 1, Durchwahl 1315)",
+    "provenance": {
+     "pages": [
+      1,
+      2
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0001",
+      "2bb722f565a0-0002",
+      "2bb722f565a0-0003"
+     ],
+     "dom_paths": [
+      "#/texts/5",
+      "#/tables/0",
+      "#/texts/6",
+      "#/texts/7",
+      "#/texts/8",
+      "#/texts/9",
+      "#/texts/10"
+     ],
+     "heading_breadcrumb": [
+      "ZSD - Zentrale Sicherheits­ dienste"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "OrgUnit_aacfc91ebed009fa",
+    "type": "OrgUnit",
+    "label": "Netzbetrieb",
+    "attributes": {
+     "kind": "team",
+     "mailbox": "netzbetrieb@bavd.bund.de"
+    },
+    "aliases": [],
+    "quote": "Änderungen erfolgen ausschließlich per Change über den Netzbetrieb (Frank Dettmer, netzbetrieb@bavd.bund.de, Durchwahl 1240).",
+    "provenance": {
+     "pages": [
+      4,
+      9,
+      13,
+      19,
+      20,
+      26
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41",
+      "#/texts/161",
+      "#/tables/8",
+      "#/texts/215",
+      "#/texts/216",
+      "#/texts/217",
+      "#/texts/220"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": "Tabelle 5",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "OrgUnit_1ef17e027e1e8a90",
+    "type": "OrgUnit",
+    "label": "CaaS-Plattformbetrieb",
+    "attributes": {
+     "kind": "team",
+     "mailbox": "caas-betrieb@bavd.bund.de",
+     "jira_project": "CAASUP"
+    },
+    "aliases": [],
+    "quote": "CaaS-Plattformbetrieb | Andreas Wehrle, Vertretung Sonja Wiechert | Trägerplattform von Vault, Knotenwartung, Kaltstart (SOP-CAAS-06) | caas-betrieb@bavd.bund.de, 2140",
+    "provenance": {
+     "pages": [
+      4,
+      6,
+      15,
+      25,
+      26,
+      27,
+      28
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41",
+      "#/texts/70",
+      "#/texts/71",
+      "#/texts/72",
+      "#/texts/73",
+      "#/texts/74",
+      "#/texts/75"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Person_c148c1f00683d662",
+    "type": "Person",
+    "label": "Kai Ostermann",
+    "attributes": {
+     "role_title": "Verantwortlicher ZSD, IAM-Betrieb",
+     "phone_ext": "1315",
+     "email": "iam-betrieb@bavd.bund.de",
+     "org_unit": "Bereich IT-S 1"
+    },
+    "aliases": [],
+    "quote": "Kai Ostermann (Bereich IT-S 1, Durchwahl 1315)",
+    "provenance": {
+     "pages": [
+      1,
+      2
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0001",
+      "2bb722f565a0-0002",
+      "2bb722f565a0-0003"
+     ],
+     "dom_paths": [
+      "#/texts/5",
+      "#/tables/0",
+      "#/texts/6",
+      "#/texts/7",
+      "#/texts/8",
+      "#/texts/9",
+      "#/texts/10"
+     ],
+     "heading_breadcrumb": [
+      "ZSD - Zentrale Sicherheits­ dienste"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Person_9fe33ad64c9f5686",
+    "type": "Person",
+    "label": "Marcel Ebert",
+    "attributes": {
+     "role_title": "Secret-Management",
+     "phone_ext": "1352",
+     "email": "zsd@bavd.bund.de",
+     "org_unit": "Bereich IT-S 1"
+    },
+    "aliases": [],
+    "quote": "Secret-Management | Marcel Ebert | Vault, Policies, Unseal, Momentaufnahmen | zsd@bavd.bund.de, 1352",
+    "provenance": {
+     "pages": [
+      4,
+      15,
+      17,
+      26,
+      27,
+      28
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/250",
+      "#/texts/251",
+      "#/texts/253",
+      "#/texts/254",
+      "#/texts/256",
+      "#/texts/258"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Person_3aa43a80a5cc53a2",
+    "type": "Person",
+    "label": "Ebert",
+    "attributes": {
+     "role_title": "Secret-Management",
+     "phone_ext": "1352",
+     "email": "zsd@bavd.bund.de",
+     "org_unit": "Bereich IT-S 1"
+    },
+    "aliases": [
+     "Marcel Ebert"
+    ],
+    "quote": "Marcel Ebert | Secret-Management (1352) | versiegelter Umschlag, Tresor IT-S 1",
+    "provenance": {
+     "pages": [
+      4,
+      15,
+      17,
+      22,
+      26,
+      27,
+      28
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/250",
+      "#/texts/251",
+      "#/texts/253",
+      "#/texts/254",
+      "#/texts/256",
+      "#/texts/258"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_75ad2ed0e39eb520",
+    "type": "System",
+    "label": "ZSD - Zentrale Sicherheitsdienste",
+    "attributes": {
+     "kind": "basisdienst",
+     "ci_id": "CI-PLT-0007",
+     "purpose": "Identitätsverwaltung, Public-Key-Infrastruktur und Secret-Management für alle Verfahren des Bundesamtes"
+    },
+    "aliases": [
+     "ZSD"
+    ],
+    "quote": "ZSD - Zentrale Sicherheitsdienste (IAM, PKI, Vault)",
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_9f73a391fce703b3",
+    "type": "System",
+    "label": "VPP Portal",
+    "attributes": {
+     "kind": "fachverfahren",
+     "cert_renewal_mode": "manuell"
+    },
+    "aliases": [
+     "VPP"
+    ],
+    "quote": "VPP Portal (BHB-VRF-0207)",
+    "provenance": {
+     "pages": [
+      2,
+      11
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/175",
+      "#/tables/10",
+      "#/texts/178"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 6",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_4a065732a0bfd72a",
+    "type": "System",
+    "label": "Mars Dokumentendienste",
+    "attributes": {
+     "kind": "fachverfahren",
+     "deployment_model": "container",
+     "cert_renewal_mode": "gemischt"
+    },
+    "aliases": [
+     "Dokumentendienste"
+    ],
+    "quote": "Mars Dokumentendienste (BHB-VRF-0118)",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_fd61ef37f50d2f4b",
+    "type": "System",
+    "label": "Event-System 2.0",
+    "attributes": {
+     "kind": "plattformdienst",
+     "cert_renewal_mode": "gemischt"
+    },
+    "aliases": [
+     "Event-System"
+    ],
+    "quote": "Event-System 2.0 (BHB-PLT-0042)",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/182",
+      "#/texts/183",
+      "#/texts/184"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_73374c4365378341",
+    "type": "System",
+    "label": "CaaS-Plattform",
+    "attributes": {
+     "kind": "plattformdienst",
+     "cert_renewal_mode": "automatisch_acme"
+    },
+    "aliases": [
+     "CaaS"
+    ],
+    "quote": "CaaS-Plattform (BHB-PLT-0001)",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/189",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_328e0ab0d8797786",
+    "type": "System",
+    "label": "Dokumentendienste",
+    "attributes": {
+     "kind": "fachverfahren",
+     "deployment_model": "container",
+     "cert_renewal_mode": "gemischt"
+    },
+    "aliases": [
+     "Mars Dokumentendienste"
+    ],
+    "quote": "Mars Dokumentendienste (BHB-VRF-0118)",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_6e527f1597a2bc04",
+    "type": "System",
+    "label": "Event-System",
+    "attributes": {
+     "kind": "plattformdienst",
+     "deployment_model": "container"
+    },
+    "aliases": [
+     "Event-System 2.0",
+     "BHB-PLT-0042"
+    ],
+    "quote": "Event-System 2.0 (BHB-PLT-0042)",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/182",
+      "#/texts/183",
+      "#/texts/184"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "System_4f70ed9a45fb05ed",
+    "type": "System",
+    "label": "Zentrale Sicherheitsdienste",
+    "attributes": {
+     "kind": "basisdienst",
+     "purpose": "Bereitstellung zentraler Sicherheitsinfrastruktur (IAM, PKI, Vault) für Verfahren und Plattformen."
+    },
+    "aliases": [
+     "ZSD",
+     "BHB-PLT-0007"
+    ],
+    "quote": "Betriebshandbuch ZSD - Zentrale Sicherheitsdienste",
+    "provenance": {
+     "pages": [
+      1,
+      2,
+      5
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0001",
+      "2bb722f565a0-0002",
+      "2bb722f565a0-0003"
+     ],
+     "dom_paths": [
+      "#/texts/5",
+      "#/tables/0",
+      "#/texts/6",
+      "#/texts/7",
+      "#/texts/8",
+      "#/texts/9",
+      "#/texts/10",
+      "#/texts/52"
+     ],
+     "heading_breadcrumb": [
+      "ZSD - Zentrale Sicherheits­ dienste"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Component_9ac69fd304962fd3",
+    "type": "Component",
+    "label": "Keycloak",
+    "attributes": {},
+    "aliases": [],
+    "quote": "Identitätsverwaltung mit Keycloak, interne Public-Key-Infrastruktur mit der BAVD Issuing CA 3 und Secret-Management mit Vault.",
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Namespace_2a98e99bf84a4f04",
+    "type": "Namespace",
+    "label": "vault-system-test",
+    "attributes": {},
+    "aliases": [],
+    "quote": "Test- und Entwicklungsstände (Realm bavd-test , BAVD Test CA 1 , Namespace vault-system-test ) folgen denselben Abläufen ohne Rufbereitschaft und ohne Vier-AugenPrinzip.",
+    "provenance": {
+     "pages": [
+      4,
+      22
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41",
+      "#/texts/485",
+      "#/texts/486",
+      "#/texts/487",
+      "#/texts/488"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "FirewallRule_88ca6c8bb1b7b984",
+    "type": "FirewallRule",
+    "label": "FW-ZSD-004",
+    "attributes": {
+     "fw_id": "FW-ZSD-004",
+     "source_desc": "ZONE-APP-WE, Egress 10.30.9.40-43",
+     "target_desc": "10.20.6.40",
+     "port": 443,
+     "protocol": "tcp",
+     "purpose": "ACME und RA-Portal für cert-manager (Event-System, Mars, Plattform)"
+    },
+    "aliases": [],
+    "quote": "FW-ZSD-004 | ZONE-APP-WE, Egress 10.30.9.40-43 | 10.20.6.40 | TCP 443 | ACME und RA-Portal für cert-manager (Event-System, Mars, Plattform)",
+    "provenance": {
+     "pages": [
+      4,
+      9,
+      10,
+      11,
+      20,
+      23
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/161",
+      "#/tables/8",
+      "#/texts/168",
+      "#/texts/169",
+      "#/texts/170",
+      "#/texts/171"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "IdentityClient_1944fc61306694d9",
+    "type": "IdentityClient",
+    "label": "dd-gateway",
+    "attributes": {
+     "realm": "bavd-intern"
+    },
+    "aliases": [],
+    "quote": "Der Client dd-gateway prüft die Token am einzigen Eingang; die Berechtigung je Dokument wird gegen ADGruppen aufgelöst.",
+    "provenance": {
+     "pages": [
+      4,
+      5,
+      9,
+      11,
+      19,
+      28
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51",
+      "#/texts/161",
+      "#/tables/8"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "IdentityClient_2a6c0383931fc3df",
+    "type": "IdentityClient",
+    "label": "es-grafana",
+    "attributes": {
+     "realm": "bavd-intern"
+    },
+    "aliases": [],
+    "quote": "Drei Kopplungen: Client es-grafana für das Ops-Cockpit, cert-manager für Routen und Service Mesh über ACME",
+    "provenance": {
+     "pages": [
+      4,
+      5,
+      11,
+      12
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51",
+      "#/texts/175",
+      "#/tables/10"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "CertificateAuthority_6ed3c838c50a1991",
+    "type": "CertificateAuthority",
+    "label": "BAVD Test CA 1",
+    "attributes": {},
+    "aliases": [],
+    "quote": "Test- und Entwicklungsstände (Realm bavd-test , BAVD Test CA 1 , Namespace vault-system-test ) folgen denselben Abläufen ohne Rufbereitschaft und ohne Vier-AugenPrinzip.",
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ],
+     "dom_paths": [
+      "#/texts/40",
+      "#/texts/41"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.1 Zweck, Zielgruppe, Geltungsbereich"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "SecretStorePath_2f78932b95ec658b",
+    "type": "SecretStorePath",
+    "label": "kv/vpp/prod/*",
+    "attributes": {
+     "vault_path": "kv/vpp/prod/*"
+    },
+    "aliases": [],
+    "quote": "Client vpp-portal, manuelle Zertifikate (SOP-VPP-05), kv/vpp/prod/*",
+    "provenance": {
+     "pages": [
+      4,
+      5,
+      11
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51",
+      "#/texts/175",
+      "#/tables/10"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "SecretStorePath_1da6d9de5644e1e0",
+    "type": "SecretStorePath",
+    "label": "kv/dd/*",
+    "attributes": {
+     "vault_path": "kv/dd/*",
+     "content_desc": "Kennwörter von DD_META und DD_AUDIT, S3-Zugangsschlüssel und Keystore-Passphrase des Archiv-Adapters"
+    },
+    "aliases": [],
+    "quote": "Die Dienste in dokumentendienste-prod holen ihre Geheimnisse über die KubernetesAuthentifizierung ihres ServiceAccounts (Token 1 h) aus kv/dd/*",
+    "provenance": {
+     "pages": [
+      4,
+      5,
+      11
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51",
+      "#/texts/175",
+      "#/tables/10"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "SecretStorePath_40502c4ba0530af1",
+    "type": "SecretStorePath",
+    "label": "kv/event-system/*",
+    "attributes": {
+     "vault_path": "kv/event-system/*"
+    },
+    "aliases": [],
+    "quote": "Client es-grafana, ACME über cert-manager, kv/event-system/*",
+    "provenance": {
+     "pages": [
+      4,
+      5
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Procedure_e7d89d1febf85b20",
+    "type": "Procedure",
+    "label": "Client-Secret rotieren (SOP-ZSD-03)",
+    "attributes": {
+     "sop_id": "SOP-ZSD-03",
+     "title": "Client-Secret rotieren",
+     "trigger": "wiederkehrend",
+     "lead_time": "45 min im Fenster des Konsumenten",
+     "steps": [
+      "Vorgang in ZSDSUP, Client und Konsument benennen, Ansprechpartner aus Tabelle 6 informieren.",
+      "Termin im Wartungsfenster des Konsumenten vereinbaren und schriftlich bestätigen lassen. Ohne Bestätigung wird nicht rotiert.",
+      "Neues Secret erzeugen und im Übergabepfad ablegen:",
+      "Der Konsument übernimmt den Wert in seinen Pfad und rollt aus (beim VPP Playbook und rollierender TomcatNeustart, zuerst vpp-app-p02 ):",
+      "15 Minuten lang das Ereignisprotokoll beobachten - erwartet keine Einträge mit invalid_client_credentials - dann Übergabepfad löschen und Vorgang schließen:"
+     ],
+     "commands": [
+      "export KC=/opt/keycloak/bin/kcadm.sh $KC config credentials --server https://iam.bavd.intern --realm master --user svc-iam-admin $KC create clients/$CID/client-secret -r bavd-intern NEW=$($KC get clients/$CID/client-secret -r bavd-intern --fields value --format csv --noquotes)",
+      "CID=$($KC get clients -r bavd-intern -q clientId=vpp-portal --fields id --format csv --noquotes) vault kv put kv/zsd/handover/vpp-portal value=\"$NEW\" ttl=24h",
+      "vault kv get -field=value kv/zsd/handover/vpp-portal | vault kv put kv/vpp/prod/oidc-clientsecret value=- ansible-playbook -i inventory/prod vpp-secrets.yml --limit vpp_app_prod ssh vpp-app-p02 'sudo systemctl restart tomcat'   # danach vpp-app-p01",
+      "$KC get events -r bavd-intern -q type=LOGIN_ERROR --fields time,clientId,error | tail -20 vault kv metadata delete kv/zsd/handover/vpp-portal"
+     ]
+    },
+    "aliases": [],
+    "quote": "SOP-ZSD-03 um Abstimmungspflicht und Übergabepfad, SOP-ZSD-04 um die Bestätigungsliste erweitert",
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Procedure_a751bd85afa75294",
+    "type": "Procedure",
+    "label": "SOP-VPP-05",
+    "attributes": {
+     "sop_id": "SOP-VPP-05"
+    },
+    "aliases": [],
+    "quote": "Client vpp-portal, manuelle Zertifikate (SOP-VPP-05), kv/vpp/prod/*",
+    "provenance": {
+     "pages": [
+      4,
+      5,
+      11
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51",
+      "#/texts/175",
+      "#/tables/10"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Procedure_b7cc0e15d8a73ea1",
+    "type": "Procedure",
+    "label": "SOP-DD-05",
+    "attributes": {
+     "sop_id": "SOP-DD-05"
+    },
+    "aliases": [],
+    "quote": "Client dd-gateway, gemischtes Verfahren (SOP-DD-05), kv/dd/*",
+    "provenance": {
+     "pages": [
+      4,
+      5,
+      11
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010",
+      "2bb722f565a0-0011"
+     ],
+     "dom_paths": [
+      "#/texts/46",
+      "#/tables/2",
+      "#/texts/48",
+      "#/texts/49",
+      "#/texts/50",
+      "#/texts/51",
+      "#/texts/175",
+      "#/tables/10"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.3 Verwandte Dokumente"
+     ],
+     "table_ref": "Tabelle 2",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Incident_22f9a96e716cd18c",
+    "type": "Incident",
+    "label": "ZSDSUP-0119",
+    "attributes": {
+     "ticket_id": "ZSDSUP-0119",
+     "title": "ACME-Anträge werden von der Firewall verworfen",
+     "date": "2025-08-18",
+     "severity": "sev2",
+     "duration": "3 Tage unentdeckt",
+     "root_cause": "Die Regel war Teil eines temporären Regelwerks der Netzwartung und wurde nicht wiederhergestellt. Unentdeckt blieb das drei Tage, weil das Ausbleiben von Anträgen nicht überwacht war.",
+     "resolution": "Der Netzbetrieb (Frank Dettmer) hat FW-ZSD-004 dauerhaft freigeschaltet und in die Prüfliste nach Netzwartungen aufgenommen; die Dokumentendienste haben das Routenzertifikat mit cmctl renew erneuert (35 Minuten nach Erkennung).",
+     "process_change": "Synthetische ACME-Prüfung alle 15 Minuten ( PkiAcmeProbeFailed ) und Zahl der ACMEAnträge im Wochenbericht der PKI. Die Regeln FW-ZSD-004 und FW-DD-014 sind in beiden Handbüchern als Voraussetzung benannt."
+    },
+    "aliases": [],
+    "quote": "Vorgang ZSDSUP-0119 · Partnervorgang DDSUP-0794 · Klasse Sev-2 · 18.08.2025",
+    "provenance": {
+     "pages": [
+      4,
+      9,
+      20,
+      23
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/161",
+      "#/tables/8",
+      "#/texts/445",
+      "#/texts/446",
+      "#/texts/447",
+      "#/texts/448"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Incident_0907ebb989b72838",
+    "type": "Incident",
+    "label": "ZSDSUP-0208",
+    "attributes": {
+     "ticket_id": "ZSDSUP-0208",
+     "title": "Client-Secret ohne Abstimmung rotiert",
+     "date": "2026-05-11",
+     "severity": "sev1",
+     "duration": "42 min beim Konsumenten",
+     "root_cause": "Ein rotiertes Secret wirkt sofort und ohne Überlappung - Keycloak 24.0 führt je Client nur ein gültiges Secret. Der ausgerollte Wert im Konsumenten war damit augenblicklich falsch.",
+     "resolution": "Das aktuelle Secret wurde über kv/zsd/handover/vpp-portal bereitgestellt, vom Systembetrieb VPP nach kv/vpp/prod/oidc-client-secret übernommen, mit vpp-secrets ausgerollt und der Apptier rollierend neu gestartet (zuerst vpp-app-p02 ). Gesamtdauer 42 Minuten.",
+     "process_change": "SOP-ZSD-03 ist seit Version 2.1 abstimmungspflichtig: Termin im Fenster des Konsumenten, schriftliche Bestätigung, Übergabe nur über kv/zsd/handover/<client> (24 h), Erfolgsprüfung im Ereignisprotokoll. Die Rotation aller produktiven Clients folgt einem Jahresplan, der mit den Wartungsfenstern der Verfahren abgeglichen ist."
+    },
+    "aliases": [],
+    "quote": "Vorgang ZSDSUP-0208 · Partnervorgang VPPSUP-2251 · Klasse Sev-1 · 11.05.2026",
+    "provenance": {
+     "pages": [
+      4,
+      11,
+      14,
+      15,
+      20,
+      21,
+      23
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/178",
+      "#/texts/244",
+      "#/texts/245",
+      "#/texts/246",
+      "#/texts/247",
+      "#/texts/248"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Incident_dc29321c388630a9",
+    "type": "Incident",
+    "label": "ZSDSUP-0214",
+    "attributes": {
+     "ticket_id": "ZSDSUP-0214",
+     "title": "Truststore nach CA-Wechsel zu spät verteilt",
+     "date": "2026-05-13",
+     "severity": "sev1",
+     "duration": "42 min",
+     "root_cause": "Verletzte Reihenfolge: Serverzertifikate wurden getauscht, bevor die neue ausstellende CA überall im Truststore vorhanden war.",
+     "resolution": "Truststore mit beiden CA-Zertifikaten neu verteilt, Pods versetzt neu gestartet; eine Nachsendung war nicht nötig, weil Kafka die Ereignisse gehalten hat.",
+     "process_change": "SOP-ZSD-04 schreibt fest: Truststore zuerst, Freigabe zum Tausch erst nach Rückmeldung aller Mandanten (Bestätigungsliste im Vorgang), Vorlauf 10 Arbeitstage, beide CA-Zertifikate parallel. Auf der Gegenseite ist die Vorbedingung in SOP-6 des Event-System (BHB-PLT-0042) aufgenommen."
+    },
+    "aliases": [],
+    "quote": "Vorgang ZSDSUP-0214 · Partnervorgang ESSUP-1455 (Verteilauftrag), Folgestörung ESSUP-1517 · Klasse Sev-1 · 13.05.2026",
+    "provenance": {
+     "pages": [
+      4,
+      17,
+      21,
+      23
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/336",
+      "#/texts/467",
+      "#/texts/468",
+      "#/texts/469",
+      "#/texts/470",
+      "#/texts/471"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Incident_9bee92d1caabf291",
+    "type": "Incident",
+    "label": "ZSDSUP-0247",
+    "attributes": {
+     "ticket_id": "ZSDSUP-0247",
+     "title": "Vault nach Knotenwartung versiegelt",
+     "date": "2026-07-02",
+     "severity": "sev1",
+     "duration": "38 min",
+     "root_cause": "Vault hält den Hauptschlüssel nur im Arbeitsspeicher; werden alle Pods gleichzeitig neu geplant, ist der Dienst zwangsläufig versiegelt. Die Wartung war nicht mit dem ZSD-Betrieb abgestimmt, weshalb niemand auf den Unseal vorbereitet war.",
+     "resolution": "Entsiegelung nach SOP-ZSD-05 mit drei Anteilen (Ostermann, Ebert, Wehrle), Neustart der betroffenen Pods, Freigabe der ArgoCD-Synchronisierung. Gesamtdauer 38 Minuten, davon 22 Minuten für das Zusammenrufen der Anteilshalter. Der Plattformbetrieb weist für denselben Vorfall 48 Minuten aus (CAASUP-0351): Dort wird ab dem Beginn der Knotenwartung bis zur vollständigen Synchronisierung aller Mandanten gemessen, hier ab der Meldung bis zur Entsiegelung.",
+     "process_change": "Knotenwartungen, die einen Vault-Knoten berühren, werden 24 Stunden vorher an zsd@bavd.bund.de angekündigt; der ZSD-Betrieb bestätigt die Erreichbarkeit von drei Anteilshaltern (aufgenommen in SOP-CAAS-01 und SOP-ZSD-05). Der Alarm VaultSealed (vault_core_unsealed == 0) meldet seit Juli 2026 unmittelbar an die Rufbereitschaft. Automatischer Unseal ist als offener Punkt OP-ZSD-02 vermerkt und setzt ein zweites Sicherheitsmodul voraus."
+    },
+    "aliases": [],
+    "quote": "Vorgang ZSDSUP-0247 · Partnervorgang CAASUP-0351, Folgevorgang beim Mandanten DDSUP-1201 · Klasse Sev-1 · 02.07.2026",
+    "provenance": {
+     "pages": [
+      4,
+      12,
+      22,
+      23,
+      24
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/189",
+      "#/texts/481",
+      "#/texts/482",
+      "#/texts/483",
+      "#/texts/484",
+      "#/tables/14"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "FailureMode_116b90bde14b8a8b",
+    "type": "FailureMode",
+    "label": "ACME-Anträge werden von der Firewall verworfen",
+    "attributes": {
+     "symptom": "Nach einer Netzwartung erreichte kein ACME-Antrag mehr die PKI. Auf ZSD-Seite war das nur als Ausbleiben von Anfragen sichtbar, nicht als Fehler; drei Tage später lief das Routenzertifikat der Dokumentendienste ab und die Recherche war nicht erreichbar (DDSUP-0794, 1 Stunde 40 Minuten).",
+     "log_evidence": "Post \"https://pki.bavd.intern/acme/new-order\": dial tcp 10.20.6.40:443: i/o timeout",
+     "check": "In der Testumgebung die Regel auf pki-t01 schließen und aus einem Pod curl -v https://pki.bavd.intern/acme/directory aufrufen; nach 30 Sekunden erscheint der Zeitüberschreitungsfehler im Protokoll des cert-managers.",
+     "remedy": "Der Netzbetrieb (Frank Dettmer) hat FW-ZSD-004 dauerhaft freigeschaltet und in die Prüfliste nach Netzwartungen aufgenommen; die Dokumentendienste haben das Routenzertifikat mit cmctl renew erneuert (35 Minuten nach Erkennung)."
+    },
+    "aliases": [
+     "7.2.1 ACME-Anträge werden von der Firewall verworfen"
+    ],
+    "quote": "7.2.1 ACME-Anträge werden von der Firewall verworfen\nVorgang ZSDSUP-0119 · Partnervorgang DDSUP-0794 · Klasse Sev-2 · 18.08.2025",
+    "provenance": {
+     "pages": [
+      2,
+      20
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0005"
+     ],
+     "dom_paths": [
+      "#/texts/24",
+      "#/texts/445",
+      "#/texts/446",
+      "#/texts/447",
+      "#/texts/448",
+      "#/texts/449",
+      "#/texts/450",
+      "#/texts/451"
+     ],
+     "heading_breadcrumb": [
+      "7 Troubleshooting",
+      "ACME-Anträge werden von der Firewall verworfen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "FailureMode_aeeb28a211972e82",
+    "type": "FailureMode",
+    "label": "Client-Secret ohne Abstimmung rotiert",
+    "attributes": {
+     "symptom": "Am Abend des 11.05.2026 wurde das Secret im Rahmen der Jahresrotation erneuert, ohne den Termin mit dem Systembetrieb VPP abzustimmen. Am Morgen des 12.05.2026 schlug jede Anmeldung fehl; der Health-Endpunkt des Portals antwortete weiter, weshalb kein Alarm des Verfahrens auslöste und die Meldung über den First Level kam.",
+     "log_evidence": "HttpClientErrorException$Unauthorized: 401 Unauthorized on POST \"https://iam.bavd.intern/realms/bavd-intern/protocol/openid-connect/token\": {\"error\":\"invalid_client\",\"error_description\":\"Invalid client or Invalid client credentials\"}",
+     "check": "In der Abnahme für vpp-portal ein neues Secret erzeugen, das Playbook bewusst nicht ausführen und https://vpp-abnahme.bavd.intern aufrufen; der Fehler tritt beim Token-Tausch auf und erscheint im Ereignisprotokoll als invalid_client_credentials.",
+     "remedy": "Das aktuelle Secret wurde über kv/zsd/handover/vpp-portal bereitgestellt, vom Systembetrieb VPP nach kv/vpp/prod/oidc-client-secret übernommen, mit vpp-secrets ausgerollt und der Apptier rollierend neu gestartet (zuerst vpp-app-p02 ). Gesamtdauer 42 Minuten."
+    },
+    "aliases": [
+     "7.2.2 Client-Secret ohne Abstimmung rotiert"
+    ],
+    "quote": "7.2.2 Client-Secret ohne Abstimmung rotiert\nVorgang ZSDSUP-0208 · Partnervorgang VPPSUP-2251 · Klasse Sev-1 · 11.05.2026",
+    "provenance": {
+     "pages": [
+      2,
+      20,
+      21
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0005"
+     ],
+     "dom_paths": [
+      "#/texts/24",
+      "#/texts/454",
+      "#/texts/455",
+      "#/texts/456",
+      "#/texts/457",
+      "#/texts/458",
+      "#/texts/459",
+      "#/texts/460"
+     ],
+     "heading_breadcrumb": [
+      "7 Troubleshooting",
+      "ACME-Anträge werden von der Firewall verworfen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_79730cd28ce68b93",
+    "type": "ImpactStatement",
+    "label": "Keycloak rollierend, mindestens 2 Knoten aktiv -> VPP (BHB-VRF-0207)",
+    "attributes": {
+     "event": "Keycloak rollierend, mindestens 2 Knoten aktiv",
+     "causing_system": "Keycloak",
+     "affected_system": "VPP (BHB-VRF-0207)",
+     "severity": "keine",
+     "symptom": "keine"
+    },
+    "aliases": [],
+    "quote": "Keycloak rollierend, mindestens 2 Knoten aktiv | keine",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/191",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_7175b5f9e139867e",
+    "type": "ImpactStatement",
+    "label": "Keycloak rollierend, mindestens 2 Knoten aktiv -> Mars Dokumentendienste (BHB-VRF-0118)",
+    "attributes": {
+     "event": "Keycloak rollierend, mindestens 2 Knoten aktiv",
+     "causing_system": "Keycloak",
+     "affected_system": "Mars Dokumentendienste (BHB-VRF-0118)",
+     "severity": "keine",
+     "symptom": "keine"
+    },
+    "aliases": [],
+    "quote": "Keycloak rollierend, mindestens 2 Knoten aktiv | keine",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_019eddf9e35b565e",
+    "type": "ImpactStatement",
+    "label": "Keycloak rollierend, mindestens 2 Knoten aktiv -> Event-System 2.0 (BHB-PLT-0042)",
+    "attributes": {
+     "event": "Keycloak rollierend, mindestens 2 Knoten aktiv",
+     "causing_system": "Keycloak",
+     "affected_system": "Event-System 2.0 (BHB-PLT-0042)",
+     "severity": "keine",
+     "symptom": "keine"
+    },
+    "aliases": [],
+    "quote": "Keycloak rollierend, mindestens 2 Knoten aktiv | keine",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/182",
+      "#/texts/183",
+      "#/texts/184"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_36b8f06c089f6b66",
+    "type": "ImpactStatement",
+    "label": "Keycloak rollierend, mindestens 2 Knoten aktiv -> CaaS-Plattform (BHB-PLT-0001)",
+    "attributes": {
+     "event": "Keycloak rollierend, mindestens 2 Knoten aktiv",
+     "causing_system": "Keycloak",
+     "affected_system": "CaaS-Plattform (BHB-PLT-0001)",
+     "severity": "keine",
+     "symptom": "keine"
+    },
+    "aliases": [],
+    "quote": "Keycloak rollierend, mindestens 2 Knoten aktiv | keine",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/189",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_2362b3b496672170",
+    "type": "ImpactStatement",
+    "label": "Keycloak Vollausfall -> VPP (BHB-VRF-0207)",
+    "attributes": {
+     "event": "Keycloak Vollausfall",
+     "causing_system": "Keycloak",
+     "affected_system": "VPP (BHB-VRF-0207)",
+     "severity": "eingeschraenkt",
+     "symptom": "keine neuen Anmeldungen, bestehende Sitzungen laufen 30 Minuten weiter",
+     "mitigation": "bestehende Sitzungen laufen 30 Minuten weiter"
+    },
+    "aliases": [],
+    "quote": "keine neuen Anmeldungen, bestehende Sitzungen laufen 30 Minuten weiter",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/191",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_1b9b465e634b9fae",
+    "type": "ImpactStatement",
+    "label": "Keycloak Vollausfall | Mars Dokumentendienste (BHB-VRF-0118)",
+    "attributes": {
+     "event": "Keycloak Vollausfall",
+     "causing_system": "Keycloak",
+     "affected_system": "Mars Dokumentendienste (BHB-VRF-0118)",
+     "severity": "eingeschraenkt",
+     "symptom": "dd-gateway antwortet auf neue Anfragen mit HTTP 401, laufender Ingest unberührt",
+     "mitigation": "laufender Ingest unberührt"
+    },
+    "aliases": [],
+    "quote": "dd-gateway antwortet auf neue Anfragen mit HTTP 401, laufender Ingest unberührt",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_9ae99ebaf1fb331c",
+    "type": "ImpactStatement",
+    "label": "Keycloak Vollausfall | Event-System 2.0 (BHB-PLT-0042)",
+    "attributes": {
+     "event": "Keycloak Vollausfall",
+     "causing_system": "Keycloak",
+     "affected_system": "Event-System 2.0 (BHB-PLT-0042)",
+     "severity": "eingeschraenkt",
+     "symptom": "Datenebene unberührt, Grafana ohne Anmeldung",
+     "mitigation": "Datenebene unberührt"
+    },
+    "aliases": [],
+    "quote": "Datenebene unberührt, Grafana ohne Anmeldung",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/182",
+      "#/texts/183",
+      "#/texts/184"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_203bff1c38dc8b90",
+    "type": "ImpactStatement",
+    "label": "Keycloak Vollausfall | CaaS-Plattform (BHB-PLT-0001)",
+    "attributes": {
+     "event": "Keycloak Vollausfall",
+     "causing_system": "Keycloak",
+     "affected_system": "CaaS-Plattform (BHB-PLT-0001)",
+     "severity": "eingeschraenkt",
+     "symptom": "Konsole ohne Anmeldung, oc mit bestehendem Token nutzbar",
+     "mitigation": "oc mit bestehendem Token nutzbar"
+    },
+    "aliases": [],
+    "quote": "Konsole ohne Anmeldung, oc mit bestehendem Token nutzbar",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/189",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_2110a5baf5e97457",
+    "type": "ImpactStatement",
+    "label": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME) | VPP (BHB-VRF-0207)",
+    "attributes": {
+     "event": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME)",
+     "causing_system": "PKI",
+     "affected_system": "VPP (BHB-VRF-0207)",
+     "severity": "eingeschraenkt",
+     "symptom": "keine Erneuerung möglich, Betrieb bis zum Ablauf des Zertifikats",
+     "mitigation": "Betrieb bis zum Ablauf des Zertifikats"
+    },
+    "aliases": [],
+    "quote": "keine Erneuerung möglich, Betrieb bis zum Ablauf des Zertifikats",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/191",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_38d956d97d2af444",
+    "type": "ImpactStatement",
+    "label": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME) | Mars Dokumentendienste (BHB-VRF-0118)",
+    "attributes": {
+     "event": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME)",
+     "causing_system": "PKI",
+     "affected_system": "Mars Dokumentendienste (BHB-VRF-0118)",
+     "severity": "eingeschraenkt",
+     "symptom": "cert-manager wiederholt, kritisch unter 7 Tagen Restlaufzeit",
+     "mitigation": "cert-manager wiederholt"
+    },
+    "aliases": [],
+    "quote": "cert-manager wiederholt, kritisch unter 7 Tagen Restlaufzeit",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_3ab0c801d8443d11",
+    "type": "ImpactStatement",
+    "label": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME) | Event-System 2.0 (BHB-PLT-0042)",
+    "attributes": {
+     "event": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME)",
+     "causing_system": "PKI",
+     "affected_system": "Event-System 2.0 (BHB-PLT-0042)",
+     "severity": "eingeschraenkt",
+     "symptom": "wie Mars Dokumentendienste; Kafka-Zertifikate sind manuell und unberührt"
+    },
+    "aliases": [],
+    "quote": "wie Mars Dokumentendienste; Kafka-Zertifikate sind manuell und unberührt",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/182",
+      "#/texts/183",
+      "#/texts/184"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_f4f9e2db60834428",
+    "type": "ImpactStatement",
+    "label": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME) | CaaS-Plattform (BHB-PLT-0001)",
+    "attributes": {
+     "event": "PKI-Ausfall (Issuing CA, RA-Portal oder ACME)",
+     "causing_system": "PKI",
+     "affected_system": "CaaS-Plattform (BHB-PLT-0001)",
+     "severity": "eingeschraenkt",
+     "symptom": "keine neuen Plattformzertifikate, bestehende Routen bleiben gültig"
+    },
+    "aliases": [],
+    "quote": "keine neuen Plattformzertifikate, bestehende Routen bleiben gültig",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/189",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_8a77d06e97d21c6c",
+    "type": "ImpactStatement",
+    "label": "Vault versiegelt | VPP (BHB-VRF-0207)",
+    "attributes": {
+     "event": "Vault versiegelt",
+     "causing_system": "Vault",
+     "affected_system": "VPP (BHB-VRF-0207)",
+     "severity": "keine",
+     "symptom": "unberührt, Keystores und Wallet liegen lokal auf den Knoten"
+    },
+    "aliases": [],
+    "quote": "unberührt, Keystores und Wallet liegen lokal auf den Knoten",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      17,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/191",
+      "#/tables/11"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 7",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_3d9c7743fb037750",
+    "type": "ImpactStatement",
+    "label": "Vault versiegelt | Mars Dokumentendienste (BHB-VRF-0118)",
+    "attributes": {
+     "event": "Vault versiegelt",
+     "causing_system": "Vault",
+     "affected_system": "Mars Dokumentendienste (BHB-VRF-0118)",
+     "severity": "eingeschraenkt",
+     "symptom": "neue Pods starten nicht (dd-ingest-worker), der Spool läuft voll"
+    },
+    "aliases": [],
+    "quote": "neue Pods starten nicht (dd-ingest-worker), der Spool läuft voll",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      17,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/tables/11",
+      "#/texts/418"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 7",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_b8fc269bbfa5b21d",
+    "type": "ImpactStatement",
+    "label": "Vault versiegelt | Event-System 2.0 (BHB-PLT-0042)",
+    "attributes": {
+     "event": "Vault versiegelt",
+     "causing_system": "Vault",
+     "affected_system": "Event-System 2.0 (BHB-PLT-0042)",
+     "severity": "eingeschraenkt",
+     "symptom": "Neustart des Dispatchers scheitert, laufende Zustellung bleibt bestehen"
+    },
+    "aliases": [],
+    "quote": "Neustart des Dispatchers scheitert, laufende Zustellung bleibt bestehen",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      17,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/182",
+      "#/texts/183"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_0238b008ad4c9a8b",
+    "type": "ImpactStatement",
+    "label": "Vault versiegelt | CaaS-Plattform (BHB-PLT-0001)",
+    "attributes": {
+     "event": "Vault versiegelt",
+     "causing_system": "Vault",
+     "affected_system": "CaaS-Plattform (BHB-PLT-0001)",
+     "severity": "eingeschraenkt",
+     "symptom": "Mandanten-Deployments blockiert, ArgoCD-Sync schlägt fehl"
+    },
+    "aliases": [],
+    "quote": "Mandanten-Deployments blockiert, ArgoCD-Sync schlägt fehl",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      17,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/189",
+      "#/tables/11"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 7",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_04bbd3c710233022",
+    "type": "ImpactStatement",
+    "label": "Active Directory Ausfall | VPP (BHB-VRF-0207)",
+    "attributes": {
+     "event": "Active Directory Ausfall",
+     "causing_system": "Active Directory",
+     "affected_system": "VPP (BHB-VRF-0207)",
+     "severity": "eingeschraenkt",
+     "symptom": "Gruppenauflösung fehlt, Anmeldung scheitert"
+    },
+    "aliases": [],
+    "quote": "Gruppenauflösung fehlt, Anmeldung scheitert",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/191",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_ce665a45ef16a7e7",
+    "type": "ImpactStatement",
+    "label": "Active Directory Ausfall | Mars Dokumentendienste (BHB-VRF-0118)",
+    "attributes": {
+     "event": "Active Directory Ausfall",
+     "causing_system": "Active Directory",
+     "affected_system": "Mars Dokumentendienste (BHB-VRF-0118)",
+     "severity": "eingeschraenkt",
+     "symptom": "Berechtigungsprüfung für neue Sitzungen scheitert, Ingest unberührt"
+    },
+    "aliases": [],
+    "quote": "Berechtigungsprüfung für neue Sitzungen scheitert, Ingest unberührt",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/180",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_c8b252372c6a4e20",
+    "type": "ImpactStatement",
+    "label": "Active Directory Ausfall | Event-System 2.0 (BHB-PLT-0042)",
+    "attributes": {
+     "event": "Active Directory Ausfall",
+     "causing_system": "Active Directory",
+     "affected_system": "Event-System 2.0 (BHB-PLT-0042)",
+     "severity": "eingeschraenkt",
+     "symptom": "nur Grafana-Gruppen betroffen"
+    },
+    "aliases": [],
+    "quote": "nur Grafana-Gruppen betroffen",
+    "provenance": {
+     "pages": [
+      2,
+      11,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/182",
+      "#/texts/183",
+      "#/texts/184"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": null,
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "ImpactStatement_5976c1d980826c7e",
+    "type": "ImpactStatement",
+    "label": "Active Directory Ausfall | CaaS-Plattform (BHB-PLT-0001)",
+    "attributes": {
+     "event": "Active Directory Ausfall",
+     "causing_system": "Active Directory",
+     "affected_system": "CaaS-Plattform (BHB-PLT-0001)",
+     "severity": "eingeschraenkt",
+     "symptom": "Konsolen-Rollen nicht auflösbar"
+    },
+    "aliases": [],
+    "quote": "Konsolen-Rollen nicht auflösbar",
+    "provenance": {
+     "pages": [
+      2,
+      12,
+      18,
+      19
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0004"
+     ],
+     "dom_paths": [
+      "#/texts/16",
+      "#/texts/17",
+      "#/texts/18",
+      "#/texts/19",
+      "#/texts/20",
+      "#/texts/189",
+      "#/texts/418",
+      "#/tables/12"
+     ],
+     "heading_breadcrumb": [
+      "4 Konsumenten und Verknüpfungen"
+     ],
+     "table_ref": "Tabelle 8",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   },
+   {
+    "id": "Alert_0387aee2720f91b9",
+    "type": "Alert",
+    "label": "VaultSealed",
+    "attributes": {
+     "expression": "vault_core_unsealed == 0",
+     "threshold": "== 0",
+     "reaction": "SOP-ZSD-05"
+    },
+    "aliases": [],
+    "quote": "Der Alarm VaultSealed (vault_core_unsealed == 0) meldet seit Juli 2026 unmittelbar an die Rufbereitschaft.",
+    "provenance": {
+     "pages": [
+      4,
+      22,
+      23,
+      24
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0008",
+      "2bb722f565a0-0009"
+     ],
+     "dom_paths": [
+      "#/texts/43",
+      "#/tables/1",
+      "#/texts/485",
+      "#/texts/486",
+      "#/texts/487",
+      "#/texts/488",
+      "#/tables/14",
+      "#/texts/496"
+     ],
+     "heading_breadcrumb": [
+      "1 Dokumentinformation",
+      "1.2 Änderungshistorie"
+     ],
+     "table_ref": "Tabelle 1",
+     "figure_ref": null,
+     "match": "verbatim"
+    }
+   }
+  ],
+  "edges": [
+   {
+    "source": "Document_ddfceb8b3907ff3e",
+    "target": "System_75ad2ed0e39eb520",
+    "type": "DOCUMENTS",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "Dieses Handbuch beschreibt den Betrieb der Zentralen Sicherheitsdienste (ZSD) des Bundesamtes für Verfahrensdienste (BAVD)",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ]
+    }
+   },
+   {
+    "source": "Document_ddfceb8b3907ff3e",
+    "target": "Document_234d427649efd1ba",
+    "type": "RELATED_DOCUMENT",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "BHB-VRF-0207 | Betriebshandbuch VPP - Verfahrensportal Prüfprozesse, V 6.2 | 17.07.2026 | Client vpp-portal, manuelle Zertifikate (SOP-VPP-05), kv/vpp/prod/*",
+    "properties": {
+     "relation_note": "Client vpp-portal, manuelle Zertifikate (SOP-VPP-05), kv/vpp/prod/*"
+    },
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0011"
+     ]
+    }
+   },
+   {
+    "source": "Document_ddfceb8b3907ff3e",
+    "target": "Document_529fe0a3c965d5a0",
+    "type": "RELATED_DOCUMENT",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "BHB-VRF-0118 | Betriebshandbuch Mars Dokumentendienste, V 4.1 | 21.07.2026 | Client dd-gateway, gemischtes Verfahren (SOP-DD-05), kv/dd/*",
+    "properties": {
+     "relation_note": "Client dd-gateway, gemischtes Verfahren (SOP-DD-05), kv/dd/*"
+    },
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0011"
+     ]
+    }
+   },
+   {
+    "source": "Document_ddfceb8b3907ff3e",
+    "target": "Document_b118519b59e00ecc",
+    "type": "RELATED_DOCUMENT",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "BHB-PLT-0042 | Betriebshandbuch Event-System 2.0, V 2.3 | 19.05.2026 | Client es-grafana, ACME über cert-manager, kv/event-system/*",
+    "properties": {
+     "relation_note": "Client es-grafana, ACME über cert-manager, kv/event-system/*"
+    },
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0011"
+     ]
+    }
+   },
+   {
+    "source": "Document_234d427649efd1ba",
+    "target": "Document_ddfceb8b3907ff3e",
+    "type": "RELATED_DOCUMENT",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "Tabelle 2 nennt die Handbücher der vier Konsumenten und die übergreifenden Vorgaben.",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010"
+     ]
+    }
+   },
+   {
+    "source": "Document_529fe0a3c965d5a0",
+    "target": "Document_ddfceb8b3907ff3e",
+    "type": "RELATED_DOCUMENT",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "Tabelle 2 nennt die Handbücher der vier Konsumenten und die übergreifenden Vorgaben.",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010"
+     ]
+    }
+   },
+   {
+    "source": "Document_b118519b59e00ecc",
+    "target": "Document_ddfceb8b3907ff3e",
+    "type": "RELATED_DOCUMENT",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "Tabelle 2 nennt die Handbücher der vier Konsumenten und die übergreifenden Vorgaben.",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0010"
+     ]
+    }
+   },
+   {
+    "source": "System_75ad2ed0e39eb520",
+    "target": "OrgUnit_9b3ace7340e5a55a",
+    "type": "OPERATED_BY",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "Fachseite: Bereich IT-S 1 - Informationssicherheit und Basisdienste",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0007"
+     ]
+    }
+   },
+   {
+    "source": "System_9f73a391fce703b3",
+    "target": "SecretStorePath_2f78932b95ec658b",
+    "type": "READS_SECRET",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "kv/vpp/prod/*",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4,
+      11
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0011"
+     ]
+    }
+   },
+   {
+    "source": "System_4f70ed9a45fb05ed",
+    "target": "OrgUnit_9b3ace7340e5a55a",
+    "type": "OPERATED_BY",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "Bereich IT-S 1 / Zentrale Sicherheitsdienste",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      1,
+      2
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0001",
+      "2bb722f565a0-0002",
+      "2bb722f565a0-0003"
+     ]
+    }
+   },
+   {
+    "source": "Incident_0907ebb989b72838",
+    "target": "Procedure_e7d89d1febf85b20",
+    "type": "RESULTED_IN_CHANGE",
+    "polarity": "positive",
+    "qualifier": null,
+    "quote": "SOP-ZSD-03 um Abstimmungspflicht und Übergabepfad",
+    "properties": {},
+    "provenance": {
+     "pages": [
+      4
+     ],
+     "chunk_ids": [
+      "2bb722f565a0-0009"
+     ]
+    }
+   }
+  ],
+  "meta": {
+   "docling_graph_version": "1.9.1",
+   "template_schema_hash": "4dec7c2b003fcf96",
+   "ontology": {
+    "name": "bavd-ops-manual-ontology",
+    "version": "1.0.0"
+   },
+   "skipped_relations": [
+    "MENTIONED_IN"
+   ],
+   "alias_reconciliation": {
+    "candidates": 17,
+    "confirmed": 7,
+    "merged": 0,
+    "vetoed_sibling": 7
+   },
+   "node_count": 59,
+   "edge_count": 11,
+   "nodes_by_type": {
+    "Document": 8,
+    "OrgUnit": 13,
+    "Person": 18,
+    "System": 15,
+    "Component": 13,
+    "Host": 36,
+    "Environment": 2,
+    "Namespace": 4,
+    "NetworkZone": 6,
+    "FirewallRule": 16,
+    "DataStore": 2,
+    "IdentityClient": 6,
+    "CertificateAuthority": 7,
+    "SecretStorePath": 11,
+    "Procedure": 11,
+    "MaintenanceWindow": 2,
+    "StartupStep": 11,
+    "Incident": 14,
+    "FailureMode": 4,
+    "ImpactStatement": 20,
+    "Alert": 12,
+    "OpenItem": 1,
+    "Term": 18
+   },
+   "edges_by_type": {
+    "DOCUMENTS": 1,
+    "RELATED_DOCUMENT": 8,
+    "DEFINES_TERM": 11,
+    "RESPONSIBLE_FOR": 9,
+    "ESCALATES_TO": 4,
+    "OPERATED_BY": 4,
+    "DEPENDS_ON": 12,
+    "TENANT_OF": 3,
+    "AUTHENTICATES_VIA": 8,
+    "READS_SECRET": 16,
+    "GOVERNED_BY": 12,
+    "RUNS_ON": 6,
+    "LOCATED_IN": 8,
+    "PRECEDES": 10,
+    "STEP_RESPONSIBILITY": 3,
+    "PARTNER_TICKET": 16,
+    "RESULTED_IN_CHANGE": 7,
+    "DETECTED_BY": 2,
+    "IMPACT_OF": 10,
+    "MONITORS": 4
+   },
+   "edges_by_polarity": {
+    "positive": 149,
+    "negative": 5
+   },
+   "unresolved_targets": [
+    {
+     "source": "Person_2f87cb68be2bf229",
+     "type": "RESPONSIBLE_FOR",
+     "target_type": null,
+     "target": "Mars Dokumentendienste, dd-gateway",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Person_fcad621a942083d0",
+     "type": "RESPONSIBLE_FOR",
+     "target_type": null,
+     "target": "Mars Dokumentendienste, dd-gateway",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Person_fd3e064a23582274",
+     "type": "RESPONSIBLE_FOR",
+     "target_type": null,
+     "target": "Event-System 2.0, Grafana",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Person_f58ee58688ebc453",
+     "type": "RESPONSIBLE_FOR",
+     "target_type": null,
+     "target": "Event-System 2.0, Grafana",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Person_6cbefc94f3651b59",
+     "type": "RESPONSIBLE_FOR",
+     "target_type": null,
+     "target": "Event-System 2.0 ⇄ Kafka",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Person_749e2f53318d1d9c",
+     "type": "RESPONSIBLE_FOR",
+     "target_type": null,
+     "target": "Event-System 2.0 ⇄ Kafka",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Component_d08885d0ec57afd0",
+     "type": "RUNS_ON",
+     "target_type": "Host",
+     "target": "pki-p01 / p02.bavd.intern",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "Component_979de78ff19023ed",
+     "type": "RUNS_ON",
+     "target_type": "Host",
+     "target": "hsm-p01 / p02",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    },
+    {
+     "source": "ImpactStatement_79730cd28ce68b93",
+     "type": "IMPACT_OF",
+     "target_type": "System",
+     "target": "VPP (BHB-VRF-0207)",
+     "polarity": "negative",
+     "reason": "node exists only as ImpactStatement, not allowed as IMPACT_OF target"
+    },
+    {
+     "source": "ImpactStatement_7175b5f9e139867e",
+     "type": "IMPACT_OF",
+     "target_type": "System",
+     "target": "Mars Dokumentendienste (BHB-VRF-0118)",
+     "polarity": "negative",
+     "reason": "node exists only as ImpactStatement, not allowed as IMPACT_OF target"
+    },
+    {
+     "source": "ImpactStatement_019eddf9e35b565e",
+     "type": "IMPACT_OF",
+     "target_type": "System",
+     "target": "Event-System 2.0 (BHB-PLT-0042)",
+     "polarity": "negative",
+     "reason": "node exists only as ImpactStatement, not allowed as IMPACT_OF target"
+    },
+    {
+     "source": "ImpactStatement_36b8f06c089f6b66",
+     "type": "IMPACT_OF",
+     "target_type": "System",
+     "target": "CaaS-Plattform (BHB-PLT-0001)",
+     "polarity": "negative",
+     "reason": "node exists only as ImpactStatement, not allowed as IMPACT_OF target"
+    },
+    {
+     "source": "ImpactStatement_2362b3b496672170",
+     "type": "IMPACT_OF",
+     "target_type": "System",
+     "target": "VPP (BHB-VRF-0207)",
+     "polarity": "positive",
+     "reason": "node exists only as ImpactStatement, not allowed as IMPACT_OF target"
+    },
+    {
+     "source": "Alert_36f497a0a665f9e7",
+     "type": "MONITORS",
+     "target_type": "Component",
+     "target": "TLS iam/pki",
+     "polarity": "positive",
+     "reason": "no node with this identity value, label or alias"
+    }
+   ],
+   "conflicts": [],
+   "dropped_empty_identity": [],
+   "dropped_by_converter": 0,
+   "enum_violations": [],
+   "identity_pattern_violations": [
+    {
+     "kind": "str",
+     "node": "Document_40faf761d3cd80a0",
+     "field": "doc_id",
+     "value": "NET-ZK-004",
+     "problem": "does not match ^BHB-(PLT|VRF)-\\d{4}$"
+    },
+    {
+     "kind": "str",
+     "node": "Document_623236f9664b8442",
+     "field": "doc_id",
+     "value": "SBF-ITS-2025",
+     "problem": "does not match ^BHB-(PLT|VRF)-\\d{4}$"
+    },
+    {
+     "kind": "str",
+     "node": "Document_1141040ec2bfe878",
+     "field": "doc_id",
+     "value": "NFH-ITS-1.4",
+     "problem": "does not match ^BHB-(PLT|VRF)-\\d{4}$"
+    },
+    {
+     "kind": "str",
+     "node": "Host_b42119264fcf5280",
+     "field": "hostname",
+     "value": "iam-p01…p03.bavd.intern",
+     "problem": "does not match ^[a-z][a-z0-9-]{1,30}(\\.[a-z0-9-]+)*$"
+    },
+    {
+     "kind": "str",
+     "node": "Host_f581a142e40ca9e1",
+     "field": "hostname",
+     "value": "FW-WE-01",
+     "problem": "does not match ^[a-z][a-z0-9-]{1,30}(\\.[a-z0-9-]+)*$"
+    },
+    {
+     "kind": "str",
+     "node": "NetworkZone_ec376098806b0338",
+     "field": "zone_id",
+     "value": "Hausnetz Süd",
+     "problem": "does not match ^ZONE-[A-Z]+(-[A-Z]{2})?$"
+    }
+   ],
+   "value_problems": [
+    {
+     "kind": "date",
+     "node": "Document_ddfceb8b3907ff3e",
+     "field": "valid_from",
+     "value": "22. Juli 2026",
+     "problem": "unrecognized date format"
+    },
+    {
+     "kind": "date",
+     "node": "Document_40faf761d3cd80a0",
+     "field": "valid_from",
+     "value": "04/2026",
+     "problem": "unrecognized date format"
+    },
+    {
+     "kind": "date",
+     "node": "Document_623236f9664b8442",
+     "field": "valid_from",
+     "value": "11/2025",
+     "problem": "unrecognized date format"
+    },
+    {
+     "kind": "date",
+     "node": "Document_1141040ec2bfe878",
+     "field": "valid_from",
+     "value": "06/2026",
+     "problem": "unrecognized date format"
+    }
+   ],
+   "polarity_notes": [],
+   "warnings": [],
+   "materialize_s": 0.144
+  }
+ },
+ "degraded": {
+  "vlm": false,
+  "embeddings": false,
+  "graph": false
+ },
+ "errors": [],
+ "warnings": [
+  "15 body text item(s) moved to page furniture (header/footer rules)",
+  "76 heading level(s) normalized from section numbering",
+  "24 table cell(s) de-hyphenated (PDF line wraps)",
+  "chunking: 7 table/figure caption(s) inferred from neighbouring text or page continuation"
+ ],
+ "timings_s": {
+  "convert": 359.479,
+  "describe": 15.027,
+  "chunk": 0.832,
+  "embed": 105.471,
+  "graph": 337.034
+ },
+ "versions": {
+  "docling_graph_service": "0.1.0",
+  "docling": "2.124.0",
+  "docling_core": "2.93.0",
+  "docling_graph": "1.9.1"
+ },
+ "cached": false
+}

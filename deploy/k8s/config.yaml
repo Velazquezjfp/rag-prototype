@@ -1,0 +1,45 @@
+# Einstellungen ohne Geheimnisse. Passwörter und API-Keys stehen in den Secrets (secrets.example.yaml).
+# Alle Werte mit GROSSEN Platzhaltern sind je Umgebung (dev/test/prod) zu setzen.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chat-config
+data:
+  # Benutzer: Header des Auth-Proxys (PAG). Ohne Header gibt es keinen Zugang.
+  USERS__ADAPTER: "header"
+  USERS__HEADER_USER: "X-Forwarded-User"          # PRÜFEN: welcher Header trägt die Benutzerkennung?
+  USERS__HEADER_EMAIL: "X-Forwarded-Email"
+  USERS__HEADER_GROUPS: "X-Forwarded-Groups"
+  USERS__MAX_TURNS: "10"
+  # Gespräche: SQLite im Pod (emptyDir) - bei jedem Neustart leer. Später Postgres: CHAT__DB__URL im Secret.
+  CHAT__DB__URL: "sqlite:///./data/chat.db"
+  # OpenSearch (nur lesen)
+  RAG__OPENSEARCH__URL: "https://OPENSEARCH_HOST:9200"
+  RAG__OPENSEARCH__USERNAME: "bhb_reader"
+  RAG__OPENSEARCH__VERIFY_CERTS: "true"           # PRÜFEN: interne CA nötig? Dann opensearch-ca anlegen (README)
+  RAG__INDEX__PREFIX: "bhb"
+  RAG__ONTOLOGY__PATH: "/ontology/ontology.yaml"
+  # Embeddings: gleiches Modell wie im Index
+  RAG__EMBEDDING__BASE_URL: "http://EMBEDDING_HOST:PORT/v1"
+  RAG__EMBEDDING__MODEL: "embeddinggemma:latest"
+  RAG__EMBEDDING__DIM: "768"
+  RAG__EMBEDDING__QUERY_PREFIX: "task: search result | query: "
+  # Sprachmodell
+  RAG__LLM__BASE_URL: "http://LLM_HOST:PORT/v1"
+  RAG__LLM__MODEL: "LLM_MODEL"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ingest-config
+data:
+  INGEST__DGS__URL: "http://dgs:8080"              # Service des docling-graph-service im selben Namespace
+  INGEST__DGS__TIMEOUT_S: "3600"                   # >= DGS__SERVICE__REQUEST_DEADLINE_S
+  INGEST__ONTOLOGIES: '{"bhb": "/ontology/ontology.yaml"}'
+  OSI__ONTOLOGY__PATH: "/ontology/ontology.yaml"   # für den Befehl osi im Pod (osi status, osi bootstrap)
+  INGEST__DEFAULT_PREFIX: "bhb"
+  INGEST__MAX_UPLOAD_MB: "50"
+  # OpenSearch (schreiben)
+  OSI__OPENSEARCH__URL: "https://OPENSEARCH_HOST:9200"
+  OSI__OPENSEARCH__USERNAME: "bhb_writer"
+  OSI__OPENSEARCH__VERIFY_CERTS: "true"            # PRÜFEN: wie beim Chat

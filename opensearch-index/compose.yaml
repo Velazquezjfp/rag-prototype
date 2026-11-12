@@ -1,0 +1,83 @@
+# opensearch-index - single-node OpenSearch with k-NN for the RAG prototype (dev box and remote server alike).
+#
+#   make up                                            # = make init + compose up -d + scripts/wait_healthy.sh
+#   docker compose --profile dashboards up -d          # + OpenSearch Dashboards on http://127.0.0.1:5601
+#   docker compose --profile tools build               # indexer CLI image (Artifactory/proxy build args from .env)
+#   docker compose --profile tools run --rm indexer ingest /data/out/remote-zsd
+#
+# One .env file (copy .env.example) drives the image/registry choice, heap, bind address, data directory, SELinux
+# label, the indexer build args AND the osi runtime settings (OSI__*), exactly like docling-graph/compose.yaml.
+# The data directory lives inside this module folder (./data/opensearch); the image runs as uid/gid 1000.
+# Works with docker compose and with podman (podman-docker + podman-compose): no `--wait`, no healthcheck
+# conditions in depends_on, readiness is checked from the host (scripts/wait_healthy.sh) - see DEPLOY.md §5.
+x-build: &build
+  context: .
+  args:
+    BASE_IMAGE: ${BASE_IMAGE:-python:3.12-slim}
+    PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
+    PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-}
+    # both spellings: apt-get only honours the lowercase ones, pip/curl/python accept either
+    HTTP_PROXY: ${HTTP_PROXY:-}
+    HTTPS_PROXY: ${HTTPS_PROXY:-}
+    NO_PROXY: ${NO_PROXY:-}
+    http_proxy: ${http_proxy:-${HTTP_PROXY:-}}
+    https_proxy: ${https_proxy:-${HTTPS_PROXY:-}}
+    no_proxy: ${no_proxy:-${NO_PROXY:-}}
+
+services:
+  opensearch:
+    image: ${OPENSEARCH_IMAGE:-opensearchproject/opensearch:3.8.0}
+    environment:
+      - cluster.name=${CLUSTER_NAME:-bhb}
+      - node.name=opensearch-1
+      - discovery.type=single-node
+      - bootstrap.memory_lock=${OPENSEARCH_MEMORY_LOCK:-true}   # false on rootless podman if memlock cannot be raised
+      - "OPENSEARCH_JAVA_OPTS=-Xms${OPENSEARCH_HEAP:-2g} -Xmx${OPENSEARCH_HEAP:-2g}"   # 1 GB default is too small with k-NN
+      - DISABLE_SECURITY_PLUGIN=true        # entrypoint adds -Eplugins.security.disabled=true -> plain http, no auth
+      - DISABLE_INSTALL_DEMO_CONFIG=true    # only consulted when the security plugin is enabled (see DEPLOY.md §3)
+      # security-enabled variant (DEPLOY.md §3): remove the two lines above and set
+      # - OPENSEARCH_INITIAL_ADMIN_PASSWORD=${OPENSEARCH_INITIAL_ADMIN_PASSWORD}   # 8-100 chars, upper+lower+digit+special
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "${OPENSEARCH_BIND:-127.0.0.1}:${OPENSEARCH_PORT:-9200}:9200"   # loopback only by default
+    volumes:
+      - ${OPENSEARCH_DATA:-./data/opensearch}:/usr/share/opensearch/data:rw${SELINUX_LABEL:-}   # SELINUX_LABEL=,Z (or ,Z,U on rootless podman)
+    healthcheck:   # the image ships no HEALTHCHECK; yellow is the final state of a single node
+      test: ["CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+  dashboards:                           # optional UI for inspecting indices; same security setting as the node
+    profiles: [dashboards]
+    image: ${DASHBOARDS_IMAGE:-opensearchproject/opensearch-dashboards:3.8.0}
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "127.0.0.1:${DASHBOARDS_PORT:-5601}:5601"
+    depends_on: [opensearch]              # ordering only (portable); Dashboards retries until the node answers
+    restart: unless-stopped
+
+  indexer:                              # the osi CLI as a one-shot container (remote server without a Python venv)
+    profiles: [tools]
+    build: *build
+    image: ${INDEXER_IMAGE:-osi:local}
+    env_file: .env
+    environment:
+      OSI__OPENSEARCH__URL: http://opensearch:9200
+      OSI__ONTOLOGY__PATH: /ontology/ontology.yaml
+    volumes:
+      - ${OUT_DIR:-../out}:/data/out:ro${SELINUX_LABEL:-}
+      - ${ONTOLOGY_DIR:-../user-manual-books/handbuch_daten/Ontologie}:/ontology:ro${SELINUX_LABEL:-}
+    depends_on: [opensearch]              # ordering only; run `make up` (waits for yellow) before using it
+    entrypoint: ["osi"]
+    command: ["status"]

@@ -1,43 +1,48 @@
 # auth-test
 
-Two tools for the login in front of the chat (OAM → oauth2-proxy → app, see ADR-0008).
+Zwei Werkzeuge für die Anmeldung vor dem Chat (OAM → oauth2-proxy → App, siehe ADR-0008).
 
-| File | What it answers | Where to run |
+| Datei | Frage | Wo ausführen |
 |---|---|---|
-| `compose.yaml` + `run-test.sh` | Which headers does an app behind oauth2-proxy 7.15.5 receive? | any machine with Docker/Podman |
-| `inspect-auth-chart.sh` | How does the org chart `cc-r444-core-auth` configure oauth2-proxy (headers, claims, mesh authz, Vault)? | the org VM (needs the Artifactory registry) |
+| `compose.yaml` + `run-test.sh` | Welche Header bekommt eine App hinter oauth2-proxy 7.15.5? | jeder Rechner mit Docker oder Podman |
+| `inspect-auth-chart.sh` | Wie stellt das Chart `cc-r444-core-auth` den oauth2-proxy ein (Header, Claims, Regeln im Service Mesh, Vault)? | die VM im Firmennetz (braucht die Registry in Artifactory) |
 
-## Header test
+## Header-Test
 
-Dex plays OAM (user `max.muster@example.org` / `password`, user ID `u1234567`), `whoami` plays the app and prints the
-headers it receives.
+Dex spielt OAM (Benutzer `max.muster@example.org` / `password`, Benutzer-ID `u1234567`). `whoami` spielt die App
+und gibt die Header aus, die bei ihr ankommen.
 
 ```bash
-./run-test.sh          # starts the stack, logs in with curl, prints the headers
+./run-test.sh          # startet alles, meldet sich mit curl an, zeigt die Header
 docker compose down
 ```
 
-Browser instead of curl: `docker compose up -d`, open http://localhost:4180. Behind a registry mirror, set
-`DEX_IMAGE`, `OAUTH2_PROXY_IMAGE`, `WHOAMI_IMAGE`; with SELinux enforcing, `SELINUX_LABEL=,Z`.
+Im Browser statt mit curl: `docker compose up -d`, dann http://localhost:4180. Hinter einem Registry-Spiegel
+`DEX_IMAGE`, `OAUTH2_PROXY_IMAGE` und `WHOAMI_IMAGE` setzen; mit SELinux `SELINUX_LABEL=,Z`.
 
-Result 2026-11-05 (default oauth2-proxy flags):
+Ergebnis vom 2026-11-05 (oauth2-proxy mit Standard-Einstellungen):
 
-| Header | Value | Source |
+| Header | Wert | Herkunft |
 |---|---|---|
-| `X-Forwarded-User` | `Cgh1MTIzNDU2NxIFbG9jYWw` | the ID token's `sub` claim (Dex encodes user ID `u1234567` + connector in it) |
-| `X-Forwarded-Email` | `max.muster@example.org` | `email` claim |
-| `X-Forwarded-Groups` | absent | the token has no `groups` claim |
-| `Cookie: _oauth2_proxy=…` | session cookie | passed through to the app |
+| `X-Forwarded-User` | `Cgh1MTIzNDU2NxIFbG9jYWw` | Claim `sub` des ID-Tokens (Dex kodiert darin die Benutzer-ID `u1234567` und den Connector) |
+| `X-Forwarded-Email` | `max.muster@example.org` | Claim `email` |
+| `X-Forwarded-Groups` | fehlt | das Token hat keinen Claim `groups` |
+| `Cookie: _oauth2_proxy=…` | Sitzungs-Cookie | wird an die App durchgereicht |
 
-A client sending its own `X-Forwarded-User`/`-Email` gets them overwritten. Without a session the proxy redirects to
-the login (302) and the app is never reached.
+Schickt ein Client eigene `X-Forwarded-User` oder `-Email`, überschreibt der Proxy sie. Ohne Sitzung leitet der
+Proxy zur Anmeldung um (302); die App wird nicht erreicht.
 
-## Chart inspection (org VM)
+Für den Chat: `USERS__HEADER_USER` legt fest, welcher Header die Benutzerkennung trägt. Welcher es im Zielsystem
+ist, steht noch offen ([`docs/OFFENE-PUNKTE.md`](../../docs/OFFENE-PUNKTE.md), Punkt 6).
+
+## Chart ansehen (VM im Firmennetz)
 
 ```bash
-REG_USER=<your user> ./inspect-auth-chart.sh oci://<artifactory>/<path>/cc-r444-core-auth <version>
-# no helm installed: runs helm from a container; behind the mirror add HELM_IMAGE=<artifactory mirror>/alpine/helm:3.19.0
+REG_USER=<benutzer> ./inspect-auth-chart.sh oci://<artifactory>/<pfad>/cc-r444-core-auth <version>
+# ohne helm auf dem Rechner: das Skript startet helm in einem Container;
+# hinter dem Spiegel dazu HELM_IMAGE=<artifactory-spiegel>/alpine/helm:3.19.0 setzen
 ```
 
-Read-only: it pulls the chart into `./auth-chart/`, renders it with default values and writes `auth-chart/summary.txt`
-(Chart.yaml, rendered object kinds, every line about headers, claims, upstream, callback, mesh authz, Vault, images).
+Das Skript ändert nichts. Es lädt das Chart nach `./auth-chart/`, rendert es mit den Standardwerten und schreibt
+`auth-chart/summary.txt`: Chart.yaml, Arten der Objekte und alle Zeilen zu Headern, Claims, Upstream, Callback,
+Mesh-Regeln, Vault und Images.

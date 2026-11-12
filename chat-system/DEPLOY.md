@@ -51,7 +51,6 @@ upgrades on the host. Both read the same `.env`.
 
 ```
 CHAT__DB__URL=postgresql+psycopg://chat:<password>@postgres:5432/chat    # enterprise profile (container) — host venv: @127.0.0.1:5432
-CHAT__UI__ALLOW_USER_SWITCH=false
 RAG__OPENSEARCH__URL=http://localhost:9200
 RAG__EMBEDDING__BASE_URL=http://localhost:11435/v1          # tunnel; model intfloat/multilingual-e5-large, QUERY_PREFIX="query: "
 RAG__LLM__BASE_URL=http://localhost:11435/v1  RAG__LLM__MODEL=Qwen/Qwen3-Coder-30B-A3B-Instruct  RAG__LLM__CONTEXT_LIMIT_TOKENS=32000

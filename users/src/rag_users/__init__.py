@@ -1,11 +1,11 @@
-"""rag-users: the mock auth/policy seam of the RAG prototype (SPEC §10.2, ADR-0008).
+"""rag-users: the auth/policy seam of the RAG prototype (SPEC §10.2, ADR-0008).
 
-One seam, two adapters, hardcoded users: ``AuthContext{user_id, email, groups}`` comes from either the
-:class:`EnvAuthAdapter` (fixed identity from ``USERS__DEV_USER``) or the :class:`HeaderAuthAdapter` (the headers
-oauth2-proxy injects at the ingress). :class:`Policy` turns the groups of a context into limits — the SPEC's
-10 messages per user per day, a turn cap per conversation (ADR-0011) and, as an ADDITION beyond §10.2, the manuals a
-group may read (``allowed_doc_ids``). Usage counting itself is not here: :class:`UsageStore` is the protocol the
-chat-system's database implements, so the cap survives a second browser tab (SPEC §10.2).
+One seam, two adapters: ``AuthContext{user_id, email, groups}`` comes from either the :class:`EnvAuthAdapter`
+(local: ONE fixed mock user, ``USERS__DEV_USER``) or the :class:`HeaderAuthAdapter` (remote: the headers
+oauth2-proxy injects at the ingress). There is no user directory and no per-group rule by default: every user may
+search every manual, there is no daily message limit, and a conversation ends after ``USERS__MAX_TURNS`` turns
+(ADR-0011). :class:`Policy` still understands per-group rules, a daily cap and ``allowed_doc_ids`` when a caller
+passes them, and :class:`UsageStore` is the protocol the chat-system's database implements for the counter.
 
 Nothing in this module does I/O; it has no dependency on the other modules.
 """
@@ -23,7 +23,6 @@ __all__ = [
     "DEFAULT_LIMITS",
     "REASON_TEXT_DE",
     "RULES",
-    "USERS",
     "AuthAdapter",
     "AuthContext",
     "Decision",
@@ -37,6 +36,7 @@ __all__ = [
     "UsageStore",
     "UsersSettings",
     "get_adapter",
+    "get_policy",
     "get_settings",
 ]
 
@@ -57,16 +57,7 @@ class AuthContext(BaseModel):
 
 
 class Unauthenticated(Exception):
-    """No usable identity: unknown dev user, or the ingress did not inject a user header."""
-
-
-USERS: dict[str, AuthContext] = {
-    "dev": AuthContext(user_id="dev", email="dev@bavd.example", groups=("bavd-ops",)),
-    "otto.ops": AuthContext(user_id="otto.ops", email="otto.ops@bavd.example", groups=("bavd-ops",)),
-    "rita.read": AuthContext(user_id="rita.read", email="rita.read@bavd.example", groups=("bavd-readonly",)),
-    "anna.admin": AuthContext(user_id="anna.admin", email="anna.admin@bavd.example", groups=("admin", "bavd-ops")),
-}
-"""The mock directory: the only users the env adapter knows and the choices of the UI's simulated ingress."""
+    """No usable identity: empty mock user, or the ingress did not inject a user header."""
 
 
 @runtime_checkable
@@ -77,18 +68,15 @@ class AuthAdapter(Protocol):
 
 
 class EnvAuthAdapter:
-    """Dev adapter (ADR-0008): a fixed identity chosen by name from :data:`USERS`."""
+    """Local adapter (ADR-0008): ONE fixed mock user, named by ``USERS__DEV_USER``. Never use it behind an ingress."""
 
-    def __init__(self, user_id: str, *, users: Mapping[str, AuthContext] = USERS) -> None:
-        self.user_id = user_id
-        self._users = users
+    def __init__(self, user_id: str) -> None:
+        self.user_id = (user_id or "").strip()
 
     def current(self) -> AuthContext:
-        try:
-            return self._users[self.user_id]
-        except KeyError:
-            known = ", ".join(sorted(self._users))
-            raise Unauthenticated(f"unknown dev user {self.user_id!r} (known: {known})") from None
+        if not self.user_id:
+            raise Unauthenticated("USERS__DEV_USER is empty: the env adapter needs a mock user id")
+        return AuthContext(user_id=self.user_id, email=f"{self.user_id}@localhost")
 
 
 class HeaderAuthAdapter:
@@ -96,7 +84,7 @@ class HeaderAuthAdapter:
 
     ``headers`` is any mapping (``st.context.headers``, a dict from a test); names are matched case-insensitively.
     The user header is mandatory, the e-mail header optional, groups are comma separated (oauth2-proxy's format).
-    Groups the :class:`Policy` does not know grant nothing, so an ingress that sends none yields the default limits.
+    A missing user header is an error, never a fallback user. Groups are kept but grant nothing by default.
     """
 
     def __init__(
@@ -149,24 +137,22 @@ def _split_groups(raw: str | None) -> tuple[str, ...]:
 
 
 class GroupLimits(BaseModel):
-    """What a group may do. ``allowed_doc_ids=None`` means every indexed manual (an ADDITION beyond SPEC §10.2)."""
+    """What a user may do. ``daily_messages=None`` = no daily limit; ``allowed_doc_ids=None`` = every manual."""
 
     model_config = ConfigDict(frozen=True)
 
-    daily_messages: int = Field(ge=0)
+    daily_messages: int | None = Field(None, ge=0)
     max_turns_per_conversation: int = Field(ge=0)
     allowed_doc_ids: tuple[str, ...] | None = None
 
 
-DEFAULT_LIMITS = GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None)
-"""SPEC §1: max 10 messages per user per day; applies to users without any known group."""
+DEFAULT_LIMITS = GroupLimits(daily_messages=None, max_turns_per_conversation=10, allowed_doc_ids=None)
+"""Every user: no daily limit, 10 turns per conversation, all manuals. :func:`get_policy` reads the turn cap from
+``USERS__MAX_TURNS``."""
 
-RULES: dict[str, GroupLimits] = {
-    "admin": GroupLimits(daily_messages=100, max_turns_per_conversation=20, allowed_doc_ids=None),
-    "bavd-ops": GroupLimits(daily_messages=10, max_turns_per_conversation=10, allowed_doc_ids=None),
-    "bavd-readonly": GroupLimits(daily_messages=5, max_turns_per_conversation=5, allowed_doc_ids=("BHB-PLT-0007",)),
-}
-"""Per-group limits. A user in several groups gets the most permissive value of each field."""
+RULES: dict[str, GroupLimits] = {}
+"""Per-group limits: none by default. A :class:`Policy` built with rules gives a user in several groups the most
+permissive value of each field."""
 
 REASON_TEXT_DE: dict[Reason, str] = {
     "ok": "",
@@ -207,7 +193,7 @@ class Decision(BaseModel):
     """Outcome of :meth:`Policy.check_message`.
 
     ``remaining_today`` counts the messages the user may still send today *before* the checked one is counted
-    (so it is ≥ 1 whenever ``allowed`` and the caller then increments the store). ``doc_ids`` is the effective
+    (so it is ≥ 1 whenever ``allowed`` and the caller then increments the store); ``None`` = no daily limit. ``doc_ids`` is the effective
     manual filter for this request (``None`` = no filter); it is ``()`` exactly when ``reason == "forbidden"``.
     """
 
@@ -215,7 +201,7 @@ class Decision(BaseModel):
 
     allowed: bool
     reason: Reason
-    remaining_today: int
+    remaining_today: int | None
     limits: GroupLimits
     doc_ids: tuple[str, ...] | None = None
 
@@ -243,8 +229,9 @@ class Policy:
             allowed = None
         else:
             allowed = _unique(d for m in matched for d in (m.allowed_doc_ids or ()))
+        daily = [m.daily_messages for m in matched]
         return GroupLimits(
-            daily_messages=max(m.daily_messages for m in matched),
+            daily_messages=None if any(d is None for d in daily) else max(d for d in daily if d is not None),
             max_turns_per_conversation=max(m.max_turns_per_conversation for m in matched),
             allowed_doc_ids=allowed,
         )
@@ -280,7 +267,7 @@ class Policy:
         """
         limits = self.limits_for(ctx)
         used = usage.count(ctx.user_id, today)
-        remaining = max(0, limits.daily_messages - used)
+        remaining = None if limits.daily_messages is None else max(0, limits.daily_messages - used)
         effective = self.effective_doc_ids(ctx, requested_doc_ids)
         doc_ids = None if effective is None else tuple(effective)
 
@@ -289,7 +276,7 @@ class Policy:
 
         if effective is not None and not effective:
             return _decide(False, "forbidden")
-        if remaining <= 0:
+        if remaining is not None and remaining <= 0:
             return _decide(False, "daily_cap")
         if turns_in_conversation >= limits.max_turns_per_conversation:
             return _decide(False, "turn_cap")
@@ -315,7 +302,9 @@ class UsersSettings(BaseSettings):
     )
 
     adapter: Literal["env", "header"] = "env"
-    dev_user: str = "dev"
+    dev_user: str = "dev"  # the one mock user of the env adapter (local profile)
+    max_turns: int = Field(10, ge=1)  # turns per conversation, then "start a new conversation"
+    daily_messages: int | None = Field(None, ge=0)  # unset = no daily limit
     header_user: str = "X-Forwarded-User"
     header_email: str = "X-Forwarded-Email"
     header_groups: str = "X-Forwarded-Groups"
@@ -333,3 +322,12 @@ def get_adapter(settings: UsersSettings | None = None, headers: Mapping[str, str
             headers, user_header=s.header_user, email_header=s.header_email, groups_header=s.header_groups
         )
     return EnvAuthAdapter(s.dev_user)
+
+
+def get_policy(settings: UsersSettings | None = None) -> Policy:
+    """The policy of the app: the same limits for every user, from ``USERS__MAX_TURNS`` / ``USERS__DAILY_MESSAGES``."""
+    s = settings if settings is not None else get_settings()
+    return Policy(
+        rules={},
+        default=GroupLimits(daily_messages=s.daily_messages, max_turns_per_conversation=s.max_turns, allowed_doc_ids=None),
+    )

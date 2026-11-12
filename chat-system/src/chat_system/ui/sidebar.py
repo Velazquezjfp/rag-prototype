@@ -1,4 +1,4 @@
-"""Sidebar: identity and quota, new/resume conversation, graph toggle, manual filter, diagnostics switch."""
+"""Sidebar: identity, new/resume conversation, graph toggle, manual filter, diagnostics switch."""
 
 from __future__ import annotations
 
@@ -74,10 +74,10 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings) -> SidebarSta
     labels = {d["doc_id"]: doc_label(d) for d in docs}
 
     with st.sidebar:
-        st.caption(f"**{ctx.user_id}** · {', '.join(ctx.groups) or '–'}")
+        st.caption(f"**{ctx.user_id}**" + (f" · {ctx.email}" if ctx.email else ""))
         st.caption(mode_caption(getattr(svc, "profile", "strict"), bool(getattr(svc, "guardrail_enabled", True))))
         q = svc.quota(ctx)
-        st.metric("Nachrichten heute", f"{q.used_today}/{q.daily_cap}", help=f"Tageslimit der Gruppe; max. {q.max_turns} Runden pro Gespräch")
+        st.caption(f"max. {q.max_turns} Runden pro Gespräch" + (f" · heute {q.used_today}/{q.daily_cap} Nachrichten" if q.daily_cap is not None else ""))
 
         if st.button("Neues Gespräch", use_container_width=True):
             load_conversation(svc, ctx, None, doc_options)
@@ -116,7 +116,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings) -> SidebarSta
             doc_options,
             key="doc_ids_pick",
             format_func=lambda d: labels.get(d, d),
-            help="leer = alle Handbücher, die die Gruppe lesen darf",
+            help="leer = alle Handbücher",
         )
 
         if "show_diagnostics" not in ss:

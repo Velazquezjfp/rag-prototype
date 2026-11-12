@@ -11,16 +11,16 @@ def test_defaults_come_from_packaged_config_yaml():
     assert s.db.url == "sqlite:///./data/chat.db" and s.db.auto_upgrade is True
     assert (s.retrieval.k, s.retrieval.k_graph, s.retrieval.history_turns_for_rewrite) == (8, 12, 2)
     assert s.limits.max_concurrent_answers == 10
-    assert s.ui.title == "Betriebshandbuch-Assistent" and s.ui.allow_user_switch is False
+    assert s.ui.title == "Betriebshandbuch-Assistent" and not hasattr(s.ui, "allow_user_switch")
 
 
 def test_env_prefix_and_nested_delimiter(monkeypatch):
     monkeypatch.setenv("CHAT__DB__URL", "postgresql+psycopg://chat:pw@localhost:5432/chat")
     monkeypatch.setenv("CHAT__RETRIEVAL__K", "4")
-    monkeypatch.setenv("CHAT__UI__ALLOW_USER_SWITCH", "true")
+    monkeypatch.setenv("CHAT__UI__ALLOW_USER_SWITCH", "true")  # removed setting: an old .env line is ignored
     monkeypatch.setenv("RAG__LLM__MODEL", "ignored-here")
     s = Settings(_env_file=None)
-    assert s.db.url.startswith("postgresql+psycopg://") and s.retrieval.k == 4 and s.ui.allow_user_switch is True
+    assert s.db.url.startswith("postgresql+psycopg://") and s.retrieval.k == 4
 
 
 def test_cwd_config_yaml_is_consulted_unlike_retrieval(tmp_path, monkeypatch):

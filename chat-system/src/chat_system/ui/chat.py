@@ -88,7 +88,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: Sideba
             status.update(label=status_label(turn), state="complete")
     except TurnRefused as exc:
         st.warning(exc.message_de)
-        if exc.reason == "turn_cap":
+        if exc.reason in ("turn_cap", "context_limit"):
             ss.capped = True
         return
     except Exception as exc:  # noqa: BLE001 - shown to the user, logged by the service
@@ -115,7 +115,7 @@ def render(svc: ChatService, ctx: AuthContext, settings: Settings, state: Sideba
         }
         render_extras(entry, state.show_diagnostics)
     messages.append(entry)
-    if turn.to_result().turns_left <= 0:
+    if turn.finish_reason == "context_limit" or turn.to_result().turns_left <= 0:
         ss.capped = True
     st.rerun()  # refresh quota, conversation list and title; history is replayed, never re-streamed
 

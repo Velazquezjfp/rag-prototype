@@ -363,7 +363,8 @@ def build_config(args: argparse.Namespace) -> RunConfig:
     if args.ontology:
         import yaml
 
-        ontology = yaml.safe_load(args.ontology.read_text(encoding="utf-8"))
+        # YAML knows dates (meta.created), JSON does not: make the document JSON-safe before sending it
+        ontology = json.loads(json.dumps(yaml.safe_load(args.ontology.read_text(encoding="utf-8")), default=str))
     return RunConfig(
         dgs_url=args.dgs_url.rstrip("/"),
         out_root=args.out.resolve(),

@@ -49,7 +49,6 @@ class LimitsSettings(BaseModel):
 
 class UiSettings(BaseModel):
     title: str = "Betriebshandbuch-Assistent"
-    allow_user_switch: bool = False  # the sidebar user selectbox ("simulated ingress"); true on the dev box only
     show_diagnostics_default: bool = False
     conversation_list_limit: int = 20
 
